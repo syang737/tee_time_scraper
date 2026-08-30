@@ -1,0 +1,23 @@
+[Unit]
+Description=Tee Time Watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/tee_time_scraper
+EnvironmentFile=/home/ubuntu/tee_time_scraper/.env
+ExecStart=/home/ubuntu/tee_time_scraper/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+# The service only needs its own directory and outbound HTTPS.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/tee_time_scraper
+
+[Install]
+WantedBy=multi-user.target

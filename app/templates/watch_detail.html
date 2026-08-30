@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ watch.label or 'Watch' }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>{{ watch.label or 'Watch #' ~ watch.id }}</h1>
+  <p class="criteria">{{ watch.describe() }}</p>
+  <p>
+    {% if watch.active %}<span class="pill on">watching</span>
+    {% else %}<span class="pill off">paused</span>{% endif %}
+    <a href="/watches/{{ watch.id }}/edit">Edit</a>
+  </p>
+
+  <h3>Dates being checked</h3>
+  {% if dates %}
+    <p class="muted">{{ dates | map('string') | join(', ') }}</p>
+  {% else %}
+    <p class="muted">No upcoming dates match this watch.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Openings seen</h2>
+  {% if not slots %}
+    <p class="muted">Nothing found yet. Alerts fire the moment a slot matching
+    every criterion above appears.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr><th>Course</th><th>When</th><th>Spots</th><th>Holes</th>
+          <th>First seen</th><th>Last seen</th><th>State</th><th>Alerts</th></tr>
+    </thead>
+    <tbody>
+      {% for s in slots %}
+      <tr class="{{ '' if s['still_open'] else 'inactive' }}">
+        <td>{{ courses[s['course_key']].name if s['course_key'] in courses else s['course_key'] }}</td>
+        <td>{{ s['date'] }} {{ s['time'] }}</td>
+        <td>{{ s['available_spots'] }}</td>
+        <td>{{ s['holes'] or '-' }}</td>
+        <td class="muted">{{ s['first_seen_at'] }}</td>
+        <td class="muted">{{ s['last_seen_at'] }}</td>
+        <td>{% if s['still_open'] %}<span class="pill on">open</span>
+            {% else %}<span class="pill off">taken</span>{% endif %}</td>
+        <td>{{ s['notify_count'] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<p><a href="/">&larr; Back to all watches</a></p>
+{% endblock %}

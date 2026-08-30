@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Watches{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Watches</h1>
+  {% if not watches %}
+    <p class="muted">Nothing being watched yet. <a href="/watches/new">Create your first watch</a>
+    to get a push the moment a matching tee time opens up.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr><th>Watch</th><th>Criteria</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for w in watches %}
+      <tr class="{{ 'inactive' if not w.active }}">
+        <td><a href="/watches/{{ w.id }}"><strong>{{ w.label or 'Watch #' ~ w.id }}</strong></a></td>
+        <td class="criteria">{{ w.describe() }}</td>
+        <td>
+          {% if w.active %}<span class="pill on">watching</span>
+          {% else %}<span class="pill off">paused</span>{% endif %}
+        </td>
+        <td class="actions">
+          <a href="/watches/{{ w.id }}/edit">Edit</a>
+          <form method="post" action="/watches/{{ w.id }}/toggle">
+            <button type="submit" class="link">{{ 'Pause' if w.active else 'Resume' }}</button>
+          </form>
+          <form method="post" action="/watches/{{ w.id }}/delete"
+                onsubmit="return confirm('Delete this watch?');">
+            <button type="submit" class="link danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Poller</h2>
+  <dl class="status">
+    <dt>Checking every</dt><dd>{{ poll_interval }}s</dd>
+    <dt>Last poll</dt><dd>{{ status['last_poll_at'] or 'never' }}</dd>
+    <dt>Last success</dt><dd>{{ status['last_success_at'] or 'never' }}</dd>
+    <dt>Polls run</dt><dd>{{ status['poll_count'] }}</dd>
+    <dt>ntfy topic</dt>
+    <dd>{% if ntfy_topic %}<code>{{ ntfy_topic }}</code>{% else %}<span class="error">not configured</span>{% endif %}</dd>
+  </dl>
+  {% if status['last_error'] %}
+    <p class="error">Last error: {{ status['last_error'] }}</p>
+  {% endif %}
+  <form method="post" action="/test-notification">
+    <button type="submit" class="secondary">Send test notification</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Recently seen openings</h2>
+  {% if not recent %}
+    <p class="muted">No matching openings recorded yet.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr><th>Course</th><th>When</th><th>Spots</th><th>Holes</th><th>Watch</th><th>State</th><th>Alerts</th></tr>
+    </thead>
+    <tbody>
+      {% for s in recent %}
+      <tr class="{{ '' if s['still_open'] else 'inactive' }}">
+        <td>{{ courses[s['course_key']].name if s['course_key'] in courses else s['course_key'] }}</td>
+        <td>{{ s['date'] }} {{ s['time'] }}</td>
+        <td>{{ s['available_spots'] }}</td>
+        <td>{{ s['holes'] or '-' }}</td>
+        <td>{{ s['watch_label'] or '#' ~ s['watch_id'] }}</td>
+        <td>{% if s['still_open'] %}<span class="pill on">open</span>
+            {% else %}<span class="pill off">taken</span>{% endif %}</td>
+        <td>{{ s['notify_count'] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}
