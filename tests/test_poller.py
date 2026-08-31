@@ -1,6 +1,7 @@
 import asyncio
 import datetime as dt
 
+import httpx
 import pytest
 
 from app import config, db, poller
@@ -195,6 +196,53 @@ def test_slots_already_underway_today_are_ignored(monkeypatch, saved_watch):
     result = run(poller.process_watch(None, db.get_watch(saved_watch.id), NOW))
 
     assert [s.time_str for s in result.matches] == ["17:00"]
+
+
+def test_one_broken_alert_does_not_cost_the_rest_of_the_cycle(
+    monkeypatch, saved_watch
+):
+    """Reproduces the Windows strftime crash, through the real notify path.
+
+    Building the alert for the 08:00 slot blows up the way ``%-d`` did. The
+    09:00 slot must still get its push: previously the exception escaped
+    ``send_slot_alert`` and abandoned every remaining match in the watch.
+    """
+    posted = []
+
+    def explode_on_the_first_slot(slot, watch):
+        if slot.time_str == "08:00":
+            raise ValueError("Invalid format string")
+        return {"Title": "ok"}
+
+    async def fake_post(self, url, **kwargs):
+        posted.append(kwargs["headers"]["Title"])
+        return httpx.Response(200)
+
+    monkeypatch.setattr(poller.notify, "_headers", explode_on_the_first_slot)
+    monkeypatch.setattr(config, "NTFY_TOPIC", "test-topic")
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    slots = [make_slot(time="08:00", spots=2), make_slot(time="09:00", spots=2)]
+
+    async def scenario():
+        calls = iter([slots])
+
+        async def fake_fetch(client, course, date):
+            return next(calls, [])
+
+        monkeypatch.setattr(poller.foreup_client, "fetch_times", fake_fetch)
+        async with httpx.AsyncClient() as client:
+            return await poller.process_watch(client, saved_watch, NOW)
+
+    result = run(scenario())
+
+    assert len(result.matches) == 2, "both slots still count as matches"
+    assert posted == ["ok"], "the good slot was notified despite the bad one"
+
+    # The broken slot is recorded as un-notified, so it retries next cycle
+    # rather than being silently written off as delivered.
+    broken = db.get_seen_slot(saved_watch.id, slots[0].slot_key)
+    assert broken["notify_count"] == 0
 
 
 def test_a_failed_push_is_retried_on_the_next_poll(monkeypatch, saved_watch):

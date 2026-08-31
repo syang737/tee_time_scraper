@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 def _headers(slot: TeeTimeSlot, watch: Watch) -> dict[str, str]:
     course = config.COURSES[slot.course_key]
     label = watch.label or f"watch #{watch.id}"
-    title = f"{slot.course_name} - {slot.start.strftime('%a %b %-d')} at {slot.display_time}"
+    title = f"{slot.course_name} - {slot.display_date} at {slot.display_time}"
     return {
         # ntfy headers must be latin-1 safe; these are all ASCII.
         "Title": title,
@@ -62,6 +62,13 @@ async def send_slot_alert(
     except httpx.HTTPError as exc:
         log.error("ntfy push failed for %s: %s", slot.slot_key, exc)
         return False
+    except Exception:
+        # Anything else -- a bad header value, a formatting slip -- is this
+        # one alert's problem. Letting it escape would abandon every
+        # remaining match in the cycle. Returning False means "not
+        # delivered", so the poller retries it next time round.
+        log.exception("Could not build or send the alert for %s", slot.slot_key)
+        return False
 
     if response.status_code >= 300:
         log.error("ntfy returned HTTP %s for %s", response.status_code, slot.slot_key)
@@ -84,5 +91,8 @@ async def send_test_alert(client: httpx.AsyncClient) -> bool:
         )
     except httpx.HTTPError as exc:
         log.error("ntfy test push failed: %s", exc)
+        return False
+    except Exception:
+        log.exception("Could not send the test alert")
         return False
     return response.status_code < 300

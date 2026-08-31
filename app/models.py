@@ -34,7 +34,17 @@ class TeeTimeSlot:
 
     @property
     def display_time(self) -> str:
-        return self.start.strftime("%-I:%M %p")
+        # Built by hand rather than with %-I/%p: the zero-stripping strftime
+        # directives are glibc-only and raise ValueError on Windows, which
+        # matters because this runs on Windows in dev and Linux deployed.
+        hour = self.start.hour % 12 or 12
+        meridiem = "AM" if self.start.hour < 12 else "PM"
+        return f"{hour}:{self.start.minute:02d} {meridiem}"
+
+    @property
+    def display_date(self) -> str:
+        # %a and %b are portable; the bare day number avoids %-d.
+        return f"{self.start.strftime('%a %b')} {self.start.day}"
 
     @property
     def slot_key(self) -> str:
