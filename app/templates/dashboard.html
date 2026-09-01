@@ -8,35 +8,37 @@
     <p class="muted">Nothing being watched yet. <a href="/watches/new">Create your first watch</a>
     to get a push the moment a matching tee time opens up.</p>
   {% else %}
-  <table>
-    <thead>
-      <tr><th>Watch</th><th>Criteria</th><th>Alerts to</th><th>Status</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for w in watches %}
-      <tr class="{{ 'inactive' if not w.active }}">
-        <td><a href="/watches/{{ w.id }}"><strong>{{ w.label or 'Watch #' ~ w.id }}</strong></a></td>
-        <td class="criteria">{{ w.describe() }}</td>
-        <td><code>{{ w.ntfy_topic or ntfy_topic or '-' }}</code>
-            {% if not w.ntfy_topic %}<span class="muted">(default)</span>{% endif %}</td>
-        <td>
-          {% if w.active %}<span class="pill on">watching</span>
-          {% else %}<span class="pill off">paused</span>{% endif %}
-        </td>
-        <td class="actions">
-          <a href="/watches/{{ w.id }}/edit">Edit</a>
-          <form method="post" action="/watches/{{ w.id }}/toggle">
-            <button type="submit" class="link">{{ 'Pause' if w.active else 'Resume' }}</button>
-          </form>
-          <form method="post" action="/watches/{{ w.id }}/delete"
-                onsubmit="return confirm('Delete this watch?');">
-            <button type="submit" class="link danger">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <ul class="watch-list">
+    {% for w in watches %}
+    <li class="watch {{ 'inactive' if not w.active }}">
+      <div class="watch-head">
+        <a class="watch-name" href="/watches/{{ w.id }}">
+          {{ w.label or 'Watch #' ~ w.id }}
+        </a>
+        {% if w.active %}<span class="pill on">watching</span>
+        {% else %}<span class="pill off">paused</span>{% endif %}
+      </div>
+
+      {% include "_criteria.html" with context %}
+
+      <div class="watch-meta">
+        alerts to <code>{{ w.ntfy_topic or ntfy_topic or 'nothing configured' }}</code>
+        {% if not w.ntfy_topic %}<span class="muted">(default)</span>{% endif %}
+      </div>
+
+      <div class="actions">
+        <a href="/watches/{{ w.id }}/edit">Edit</a>
+        <form method="post" action="/watches/{{ w.id }}/toggle">
+          <button type="submit" class="link">{{ 'Pause' if w.active else 'Resume' }}</button>
+        </form>
+        <form method="post" action="/watches/{{ w.id }}/delete"
+              onsubmit="return confirm('Delete this watch?');">
+          <button type="submit" class="link danger">Delete</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
   {% endif %}
 </div>
 
@@ -66,6 +68,7 @@
   {% if not recent %}
     <p class="muted">No matching openings recorded yet.</p>
   {% else %}
+  <div class="table-wrap">
   <table>
     <thead>
       <tr><th>Course</th><th>When</th><th>Spots</th><th>Holes</th><th>Watch</th><th>State</th><th>Alerts</th></tr>
@@ -85,6 +88,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -148,3 +148,75 @@ def test_describe_mentions_every_criterion():
     assert "Weequahic" in text
     assert "07:00-10:00" in text
     assert "2+ players" in text
+
+
+# --------------------------------------------------------------------------
+# criteria rendering
+# --------------------------------------------------------------------------
+
+
+def test_criteria_returns_one_chip_per_course():
+    facets = watch(courses=["weequahic", "byrne"]).criteria()
+    courses = [c.text for c in facets if c.kind == "course"]
+    assert courses == ["Weequahic", "Francis A. Byrne"]
+
+
+def test_criteria_covers_every_facet():
+    kinds = {c.kind for c in watch(time_start="07:00", min_players=2).criteria()}
+    assert kinds == {"course", "when", "time", "players", "holes"}
+
+
+def test_criteria_text_never_contains_the_pipe_separator():
+    # describe() is a single pipe-joined line for notification text; the GUI
+    # renders chips instead, so no chip should carry a separator of its own.
+    for c in watch(time_start="07:00", time_end="10:30", min_players=2).criteria():
+        assert "|" not in c.text
+
+
+@pytest.mark.parametrize(
+    "start,end,expected",
+    [
+        ("07:00", "10:30", "7:00 - 10:30 AM"),   # shared meridiem shown once
+        ("07:00", "14:00", "7:00 AM - 2:00 PM"),  # crossing noon needs both
+        ("12:00", "13:30", "12:00 - 1:30 PM"),    # noon is PM
+        ("00:30", "06:00", "12:30 - 6:00 AM"),    # midnight is AM
+        (None, "10:30", "until 10:30 AM"),
+        ("14:00", None, "from 2:00 PM"),
+        (None, None, "any time"),
+    ],
+)
+def test_time_text_reads_naturally(start, end, expected):
+    assert watch(time_start=start, time_end=end).time_text() == expected
+
+
+@pytest.mark.parametrize(
+    "days,expected",
+    [
+        (["sat", "sun"], "Sat & Sun"),
+        (["sat"], "Sat"),
+        (["mon", "wed", "fri"], "Mon, Wed, Fri"),
+        (["mon", "tue", "wed", "thu", "fri", "sat", "sun"], "any day"),
+        ([], "any day"),
+    ],
+)
+def test_when_text_lists_days_in_week_order(days, expected):
+    assert watch(days=days).when_text() == expected
+
+
+def test_when_text_for_a_specific_date_names_the_day():
+    assert watch(specific_date="2026-09-07").when_text() == "Mon Sep 7"
+
+
+def test_a_specific_date_watch_has_no_horizon_chip():
+    facets = watch(specific_date="2026-09-07").criteria()
+    assert [c.text for c in facets if c.kind == "when"] == ["Mon Sep 7"]
+
+
+@pytest.mark.parametrize(
+    "hour,minute,expected",
+    [(0, 0, "12:00 AM"), (7, 5, "7:05 AM"), (12, 0, "12:00 PM"), (23, 59, "11:59 PM")],
+)
+def test_format_12h_matches_the_slot_display(hour, minute, expected):
+    from app.models import format_12h
+
+    assert format_12h(hour, minute) == expected

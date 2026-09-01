@@ -1,0 +1,18 @@
+{# One chip per criterion. Expects `w` (a Watch) in context. #}
+<ul class="criteria-chips">
+  {% for c in w.criteria() %}
+  <li class="chip chip-{{ c.kind }}">
+    {# No icon on the holes chip: the flag would just repeat the course chip's,
+       and "18 holes" already reads unambiguously. #}
+    {%- if c.kind != 'holes' %}
+    <span class="chip-icon" aria-hidden="true">
+      {%- if c.kind == 'course' %}&#9971;
+      {%- elif c.kind == 'when' %}&#128197;
+      {%- elif c.kind == 'time' %}&#128340;
+      {%- else %}&#128100;{% endif -%}
+    </span>
+    {%- endif %}
+    {{ c.text }}
+  </li>
+  {% endfor %}
+</ul>

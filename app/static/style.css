@@ -64,10 +64,78 @@ h1 { font-size: 1.4rem; margin: 0 0 0.75rem; }
 h2 { font-size: 1.1rem; margin: 0 0 0.75rem; }
 h3 { font-size: 0.95rem; margin: 1rem 0 0.35rem; }
 
+/* Genuinely tabular data scrolls inside its own box, so a wide table can
+   never push the page sideways on a phone. */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }
+th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
 tr.inactive { opacity: 0.55; }
+
+/* --- watch list -------------------------------------------------------- */
+/* Cards rather than table rows: a watch is a configured thing with actions,
+   not a row of data, and cards stack on a narrow screen instead of
+   overflowing. */
+
+.watch-list { list-style: none; margin: 0; padding: 0; }
+
+.watch {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.watch:last-child { border-bottom: 0; padding-bottom: 0; }
+.watch.inactive { opacity: 0.6; }
+
+.watch-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.watch-head h1 { margin: 0; }
+.watch-name {
+  font-weight: 600;
+  font-size: 1.02rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+.watch-name:hover { color: var(--green); text-decoration: underline; }
+
+.watch-meta { font-size: 0.83rem; color: var(--muted); margin: 0.5rem 0 0; }
+
+/* --- criteria chips ---------------------------------------------------- */
+
+.criteria-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;      /* the whole point: wraps instead of overflowing */
+  gap: 0.35rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.16rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 0.78rem;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.chip-icon { font-size: 0.85em; line-height: 1; opacity: 0.75; }
+
+/* The course is the thing you scan for first, so give it the accent. */
+.chip-course {
+  border-color: color-mix(in srgb, var(--green) 45%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--green);
+  font-weight: 600;
+}
 
 .criteria { color: var(--muted); font-size: 0.87rem; }
 .muted { color: var(--muted); }

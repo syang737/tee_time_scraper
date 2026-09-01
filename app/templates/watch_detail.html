@@ -3,13 +3,15 @@
 
 {% block content %}
 <div class="card">
-  <h1>{{ watch.label or 'Watch #' ~ watch.id }}</h1>
-  <p class="criteria">{{ watch.describe() }}</p>
-  <p>
+  <div class="watch-head">
+    <h1>{{ watch.label or 'Watch #' ~ watch.id }}</h1>
     {% if watch.active %}<span class="pill on">watching</span>
     {% else %}<span class="pill off">paused</span>{% endif %}
-    <a href="/watches/{{ watch.id }}/edit">Edit</a>
-  </p>
+  </div>
+
+  {% with w = watch %}{% include "_criteria.html" %}{% endwith %}
+
+  <p><a href="/watches/{{ watch.id }}/edit">Edit this watch</a></p>
 
   <h3>Alerts go to</h3>
   <p class="muted">
@@ -37,6 +39,7 @@
     <p class="muted">Nothing found yet. Alerts fire the moment a slot matching
     every criterion above appears.</p>
   {% else %}
+  <div class="table-wrap">
   <table>
     <thead>
       <tr><th>Course</th><th>When</th><th>Spots</th><th>Holes</th>
@@ -58,6 +61,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
 </div>
 

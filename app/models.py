@@ -6,8 +6,37 @@ import datetime as dt
 from dataclasses import dataclass, field
 from typing import Any
 
+# config imports nothing from here, so this stays acyclic.
+from . import config
+
 # Monday=0 .. Sunday=6, matching datetime.weekday().
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+DAY_NAMES = {
+    "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu",
+    "fri": "Fri", "sat": "Sat", "sun": "Sun",
+}
+
+
+def format_12h(hour: int, minute: int, meridiem: bool = True) -> str:
+    """12-hour clock without the platform-specific strftime directives."""
+    value = f"{hour % 12 or 12}:{minute:02d}"
+    if not meridiem:
+        return value
+    return f"{value} {'AM' if hour < 12 else 'PM'}"
+
+
+def _parse_hhmm(value: str) -> tuple[int, int]:
+    hour, minute = value.split(":")
+    return int(hour), int(minute)
+
+
+@dataclass(frozen=True)
+class Criterion:
+    """One facet of a watch, for rendering as its own chip in the GUI."""
+
+    kind: str  # course | when | time | players | holes
+    text: str
 
 
 @dataclass
@@ -34,12 +63,7 @@ class TeeTimeSlot:
 
     @property
     def display_time(self) -> str:
-        # Built by hand rather than with %-I/%p: the zero-stripping strftime
-        # directives are glibc-only and raise ValueError on Windows, which
-        # matters because this runs on Windows in dev and Linux deployed.
-        hour = self.start.hour % 12 or 12
-        meridiem = "AM" if self.start.hour < 12 else "PM"
-        return f"{hour}:{self.start.minute:02d} {meridiem}"
+        return format_12h(self.start.hour, self.start.minute)
 
     @property
     def display_date(self) -> str:
@@ -117,6 +141,64 @@ class Watch:
             return False
 
         return True
+
+    def when_text(self) -> str:
+        if self.specific_date:
+            date = dt.date.fromisoformat(self.specific_date)
+            return f"{DAY_NAMES[WEEKDAYS[date.weekday()]]} {date.strftime('%b')} {date.day}"
+        if not self.days:
+            return "any day"
+        ordered = [DAY_NAMES[d] for d in WEEKDAYS if d in self.days]
+        if len(ordered) == 7:
+            return "any day"
+        return " & ".join(ordered) if len(ordered) <= 2 else ", ".join(ordered)
+
+    def time_text(self) -> str:
+        """The window as a reader would say it, e.g. '7:00 - 10:30 AM'."""
+        if not self.time_start and not self.time_end:
+            return "any time"
+        if self.time_start and not self.time_end:
+            return f"from {format_12h(*_parse_hhmm(self.time_start))}"
+        if self.time_end and not self.time_start:
+            return f"until {format_12h(*_parse_hhmm(self.time_end))}"
+
+        start_h, start_m = _parse_hhmm(self.time_start)
+        end_h, end_m = _parse_hhmm(self.time_end)
+        # Drop the redundant first meridiem when both ends share one.
+        same_half = (start_h < 12) == (end_h < 12)
+        start = format_12h(start_h, start_m, meridiem=not same_half)
+        return f"{start} - {format_12h(end_h, end_m)}"
+
+    def criteria(self) -> list[Criterion]:
+        """The watch broken into facets, so the GUI can render real chips.
+
+        describe() flattens all of this into one pipe-separated string, which
+        wraps into an unreadable stack on a phone. Keep that for notification
+        text, where a single line is what's wanted, and use this for markup.
+        """
+        facets = [
+            Criterion(
+                "course",
+                config.COURSES[key].name if key in config.COURSES else key.title(),
+            )
+            for key in self.courses
+        ]
+        facets.append(Criterion("when", self.when_text()))
+        if self.horizon_days and not self.specific_date:
+            facets.append(Criterion("when", f"next {self.horizon_days} days"))
+        facets.append(Criterion("time", self.time_text()))
+        facets.append(
+            Criterion(
+                "players",
+                f"{self.min_players}+ players" if self.min_players else "any players",
+            )
+        )
+        facets.append(
+            Criterion(
+                "holes", "any holes" if self.holes == "any" else f"{self.holes} holes"
+            )
+        )
+        return facets
 
     def describe(self) -> str:
         """One-line summary of the criteria, for the GUI and notifications."""
