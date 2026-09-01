@@ -65,33 +65,124 @@ journalctl -u teetimes -f      # watch the poller live
 The unit file assumes the repo lives at `/home/ubuntu/tee_time_scraper` and
 runs as `ubuntu`. Edit the paths if yours differ.
 
-## 6. Lock down access
+## 6. Serve it on a subdomain over HTTPS
 
-In the Lightsail console → your instance → **Networking** → IPv4 Firewall,
-add a **Custom TCP 8000** rule and set *Restrict to IP address* to your home
-IP. The GUI password is the primary gate; the firewall rule means a scanner
-never even reaches the login page.
+The app binds to `127.0.0.1` (see the unit file), so it is not reachable from
+outside the box at all. Caddy terminates TLS in front of it.
 
-Leave port 8000 closed to the world otherwise — don't add an open 0.0.0.0/0
-rule for it.
+**Why a subdomain rather than a path** like `example.com/golf`: every link,
+form action and redirect in the app is rooted at `/`. Serving it under a path
+prefix would need `root_path`, prefix-aware templates and a scoped cookie.
+A subdomain needs none of that, and keeps this deployment independent of
+whatever else the apex domain serves.
 
-Now open `http://<your-instance-ip>:8000`, log in, and create a watch.
+### Point DNS at the instance
 
-## Optional: HTTPS on a domain
+Give the instance a **static IP** (Lightsail → Networking → Create static IP;
+without one the address changes on restart). Then add one record at your DNS
+provider — wherever the domain's nameservers point, which may not be the same
+place the apex site is hosted:
 
-Traffic to port 8000 is plain HTTP, so your GUI password crosses the network
-in the clear. If you'd rather not restrict by IP, put Caddy in front — it
-gets a Let's Encrypt cert automatically:
-
-```bash
-sudo apt install -y caddy
-echo "teetimes.example.com {
-    reverse_proxy localhost:8000
-}" | sudo tee /etc/caddy/Caddyfile
-sudo systemctl restart caddy
+```
+Type: A    Name: golf    Value: <your-static-ip>    TTL: 300
 ```
 
-Then open 80/443 in the Lightsail firewall and close 8000.
+Confirm it resolves before continuing, or Caddy's certificate request will
+fail:
+
+```bash
+dig +short golf.potpourri.lol
+```
+
+### Open the firewall
+
+Lightsail → your instance → **Networking** → IPv4 Firewall:
+
+- **Add** HTTP (80) and HTTPS (443), open to everyone. Port 80 is required —
+  Let's Encrypt validates over it.
+- **Do not** open 8000. Caddy reaches the app over localhost.
+
+### Install Caddy
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo nano /etc/caddy/Caddyfile      # set your hostname
+sudo systemctl reload caddy
+```
+
+Caddy obtains and renews the certificate by itself. Watch it happen with
+`journalctl -u caddy -f`.
+
+### Tell the app it is behind HTTPS
+
+Add to `.env`, so the session cookie is never sent over a plain connection:
+
+```
+COOKIE_SECURE=true
+```
+
+Then `sudo systemctl restart teetimes` and open
+`https://golf.potpourri.lol`.
+
+### A note on who can reach it
+
+Once this is on a public domain the shared password is the only thing
+protecting it — the earlier IP restriction is gone. Use a genuinely strong
+`GUI_PASSWORD`. The scraper holds no course login or payment details, so the
+worst case is someone seeing or editing your watches, but pick a real
+password anyway.
+
+If you later move the domain's DNS to Cloudflare for other reasons, a
+Cloudflare Tunnel would let you close ports 80/443 entirely and stop
+publishing the instance's IP. It is not worth migrating nameservers just for
+that.
+
+## Keeping the disk in check
+
+A 20 GB instance is plenty, but a process polling every 30 seconds forever
+needs two things bounded. The database is *not* the one to worry about:
+
+| Source | Growth | Bounded by |
+|---|---|---|
+| `teetimes.db` | ~1 MB/year | `RETENTION_DAYS` (default 5), purged daily |
+| systemd journal | ~4 GB/year if unbounded | `SystemMaxUse` below |
+| Caddy access log | bounded | `roll_size`/`roll_keep` in the Caddyfile |
+
+**The database** holds one row per matching slot, updated in place rather
+than appended, so it only grows as new dates enter the horizon. Anything not
+seen for `RETENTION_DAYS` is deleted once a day and the file is `VACUUM`ed so
+the space actually returns to the filesystem. Retention is keyed on when a
+slot was last *seen*, not on its tee time, so a slot that is still open is
+never purged and can't come back as a duplicate alert. The dashboard shows
+the current row count and file size.
+
+**The journal** was the real risk. httpx logs a full URL per request at INFO,
+which at 12 requests every 30 seconds is roughly 35,000 lines and 11 MB a
+day. The app now sets httpx to WARNING, which removes essentially all of it —
+failures still get logged by the poller. Cap the journal anyway so nothing
+else can fill the disk:
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+echo -e "[Journal]\nSystemMaxUse=200M" \
+  | sudo tee /etc/systemd/journald.conf.d/size.conf
+sudo systemctl restart systemd-journald
+```
+
+Check on things any time with:
+
+```bash
+df -h /                          # disk overall
+du -h ~/tee_time_scraper/*.db    # database
+journalctl --disk-usage          # logs
+```
 
 ## Updating
 

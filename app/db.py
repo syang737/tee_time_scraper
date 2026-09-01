@@ -84,6 +84,14 @@ def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
         conn.execute("INSERT OR IGNORE INTO poll_status (id) VALUES (1)")
+        _migrate(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that arrived after a database was first created."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(poll_status)")}
+    if "last_purge_at" not in existing:
+        conn.execute("ALTER TABLE poll_status ADD COLUMN last_purge_at TEXT")
 
 
 # --------------------------------------------------------------------------
@@ -271,3 +279,63 @@ def record_poll(error: str | None) -> None:
 def get_poll_status() -> sqlite3.Row | None:
     with connect() as conn:
         return conn.execute("SELECT * FROM poll_status WHERE id = 1").fetchone()
+
+
+# --------------------------------------------------------------------------
+# retention
+# --------------------------------------------------------------------------
+
+
+def purge_old_slots(now: dt.datetime, retention_days: int) -> int:
+    """Drop slot history we last saw more than ``retention_days`` ago.
+
+    Keyed on ``last_seen_at``, deliberately -- not on the tee time's own
+    date. ``seen_slots`` is not just history, it is the live dedup state: a
+    slot that is still open still gets its ``last_seen_at`` refreshed every
+    cycle, so it can never be purged out from under us and re-alert as a
+    fresh opening. Only rows the poller has stopped seeing age out.
+    """
+    cutoff = to_iso(now - dt.timedelta(days=retention_days))
+    with connect() as conn:
+        cur = conn.execute("DELETE FROM seen_slots WHERE last_seen_at < ?", (cutoff,))
+        deleted = cur.rowcount
+        conn.execute(
+            "UPDATE poll_status SET last_purge_at = ? WHERE id = 1", (to_iso(now),)
+        )
+
+    if deleted:
+        # SQLite keeps freed pages for reuse rather than returning them to
+        # the filesystem; VACUUM is what actually shrinks the file.
+        with connect() as conn:
+            conn.execute("VACUUM")
+    return deleted
+
+
+def due_for_purge(now: dt.datetime) -> bool:
+    """True when a purge hasn't run in the last day."""
+    status = get_poll_status()
+    if status is None:
+        return False
+    last = status["last_purge_at"] if "last_purge_at" in status.keys() else None
+    if not last:
+        return True
+    try:
+        previous = dt.datetime.fromisoformat(last)
+    except ValueError:
+        return True
+    if previous.tzinfo is None:
+        previous = previous.replace(tzinfo=dt.timezone.utc)
+    return now.astimezone(dt.timezone.utc) - previous >= dt.timedelta(days=1)
+
+
+def storage_stats() -> dict[str, int]:
+    """Row count and on-disk size, for the dashboard."""
+    import os
+
+    with connect() as conn:
+        slots = conn.execute("SELECT COUNT(*) AS n FROM seen_slots").fetchone()["n"]
+    try:
+        size = os.path.getsize(config.DB_PATH)
+    except OSError:
+        size = 0
+    return {"slot_rows": slots, "db_bytes": size}

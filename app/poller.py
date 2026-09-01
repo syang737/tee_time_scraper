@@ -152,6 +152,17 @@ async def poll_once(
             )
 
     db.record_poll("; ".join(errors) if errors else None)
+
+    # Housekeeping runs at most daily, not on every 30s cycle.
+    if db.due_for_purge(now):
+        deleted = db.purge_old_slots(now, config.RETENTION_DAYS)
+        if deleted:
+            log.info(
+                "Purged %s slot row(s) not seen in %s days",
+                deleted,
+                config.RETENTION_DAYS,
+            )
+
     return total
 
 

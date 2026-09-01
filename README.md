@@ -76,6 +76,18 @@ Everything is set through `.env` (see `.env.example`):
 | `RENOTIFY_AFTER_MINUTES` | `10` | Reminder cadence for a still-open slot. |
 | `REQUEST_DELAY_SECONDS` | `0.5` | Spacing between requests inside a cycle. |
 | `DB_PATH` | `teetimes.db` | SQLite file. |
+| `RETENTION_DAYS` | `5` | Drop slot history not seen for this long. |
+| `COOKIE_SECURE` | unset | Set true when serving over HTTPS. |
+
+### Storage
+
+Designed to run forever on a small instance. Slot history is purged daily to
+`RETENTION_DAYS` and the file is `VACUUM`ed, which holds the database around
+a megabyte a year. Retention is keyed on when a slot was last *seen* rather
+than on its tee time, so a slot that is still open never ages out and can't
+resurface as a duplicate alert. The dashboard shows the live row count and
+file size. See [deploy/DEPLOY.md](deploy/DEPLOY.md) for capping logs too —
+those grow faster than the database does.
 
 ### A note on polling load
 

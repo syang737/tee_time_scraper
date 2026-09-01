@@ -21,6 +21,14 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+
+# httpx logs a line per request at INFO. At 12 requests every 30 seconds
+# that is ~35k lines and ~11 MB a day -- roughly 4 GB a year of full URLs,
+# which is a real problem on a 20 GB instance and drowns out the messages
+# that matter. Failures still surface: the poller logs those itself.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent
@@ -132,6 +140,8 @@ async def dashboard(request: Request):
             "poll_interval": config.POLL_INTERVAL_SECONDS,
             "ntfy_topic": config.NTFY_TOPIC,
             "today": today,
+            "storage": db.storage_stats(),
+            "retention_days": config.RETENTION_DAYS,
         },
     )
 

@@ -94,4 +94,12 @@ REQUEST_DELAY_SECONDS = _float_env("REQUEST_DELAY_SECONDS", 0.5)
 RENOTIFY_AFTER_MINUTES = _int_env("RENOTIFY_AFTER_MINUTES", 10)
 DB_PATH = os.getenv("DB_PATH", "teetimes.db")
 
+# Slot history older than this is dropped once a day. Measured from when a
+# slot was last seen, so anything still open is never purged.
+RETENTION_DAYS = _int_env("RETENTION_DAYS", 5)
+
+# Set true when the GUI is served over HTTPS (behind Caddy), so the session
+# cookie is never sent over a plain connection.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
+
 SESSION_COOKIE = "teetimes_session"

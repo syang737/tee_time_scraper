@@ -47,6 +47,9 @@
     <dt>Polls run</dt><dd>{{ status['poll_count'] }}</dd>
     <dt>ntfy topic</dt>
     <dd>{% if ntfy_topic %}<code>{{ ntfy_topic }}</code>{% else %}<span class="error">not configured</span>{% endif %}</dd>
+    <dt>Stored history</dt>
+    <dd>{{ storage.slot_rows }} slots, {{ '%.1f'|format(storage.db_bytes / 1024) }} KB
+        <span class="muted">(kept {{ retention_days }} days)</span></dd>
   </dl>
   {% if status['last_error'] %}
     <p class="error">Last error: {{ status['last_error'] }}</p>

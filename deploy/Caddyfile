@@ -1,0 +1,27 @@
+# Caddy config for the tee time watcher.
+#
+# Caddy fetches and renews a Let's Encrypt certificate on its own -- there is
+# no certbot step. Replace the hostname with yours, then:
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+golf.potpourri.lol {
+	# The app binds to localhost only, so this is the sole way in and every
+	# request is forced through TLS.
+	reverse_proxy localhost:8000
+
+	# Tells the app it is being served over HTTPS, which uvicorn passes
+	# through via --proxy-headers.
+	header_up X-Forwarded-Proto {scheme}
+
+	encode gzip
+
+	log {
+		# Keep access logs bounded; the instance disk is small.
+		output file /var/log/caddy/golf.log {
+			roll_size 10MB
+			roll_keep 3
+		}
+	}
+}

@@ -29,6 +29,9 @@ def issue_cookie(response) -> None:
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
+        # Off by default so local http development works; set COOKIE_SECURE
+        # in .env once the GUI is served over HTTPS.
+        secure=config.COOKIE_SECURE,
     )
 
 
