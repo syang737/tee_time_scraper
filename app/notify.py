@@ -43,15 +43,31 @@ def _body(slot: TeeTimeSlot, watch: Watch) -> str:
     return "\n".join(lines)
 
 
+def topic_for(watch: Watch) -> str:
+    """Where this watch's alerts go.
+
+    Each watch can name its own topic, so several people can share one
+    instance and each get only their own alerts on their own phone. Falling
+    back to the server-wide topic keeps watches that predate the field, and
+    anyone who doesn't care, working unchanged.
+    """
+    return watch.ntfy_topic or config.NTFY_TOPIC
+
+
 async def send_slot_alert(
     client: httpx.AsyncClient, slot: TeeTimeSlot, watch: Watch
 ) -> bool:
     """Push one alert. Returns True if ntfy accepted it."""
-    if not config.NTFY_TOPIC:
-        log.warning("NTFY_TOPIC is not set; skipping notification for %s", slot.slot_key)
+    topic = topic_for(watch)
+    if not topic:
+        log.warning(
+            "No ntfy topic for watch %s; skipping notification for %s",
+            watch.id,
+            slot.slot_key,
+        )
         return False
 
-    url = f"{config.NTFY_SERVER}/{config.NTFY_TOPIC}"
+    url = f"{config.NTFY_SERVER}/{topic}"
     try:
         response = await client.post(
             url,
@@ -78,13 +94,16 @@ async def send_slot_alert(
     return True
 
 
-async def send_test_alert(client: httpx.AsyncClient) -> bool:
-    """Used by the GUI's 'send test notification' button."""
-    if not config.NTFY_TOPIC:
+async def send_test_alert(
+    client: httpx.AsyncClient, topic: str | None = None
+) -> bool:
+    """Used by the GUI's 'send test notification' buttons."""
+    topic = topic or config.NTFY_TOPIC
+    if not topic:
         return False
     try:
         response = await client.post(
-            f"{config.NTFY_SERVER}/{config.NTFY_TOPIC}",
+            f"{config.NTFY_SERVER}/{topic}",
             content=b"Tee time watcher is connected and watching.",
             headers={"Title": "Test notification", "Tags": "golf"},
             timeout=10.0,

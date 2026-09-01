@@ -11,6 +11,18 @@
     <a href="/watches/{{ watch.id }}/edit">Edit</a>
   </p>
 
+  <h3>Alerts go to</h3>
+  <p class="muted">
+    {% if watch.ntfy_topic %}
+      <code>{{ watch.ntfy_topic }}</code>
+    {% else %}
+      <code>{{ default_topic or 'nothing configured' }}</code> (server default)
+    {% endif %}
+  </p>
+  <form method="post" action="/watches/{{ watch.id }}/test-notification">
+    <button type="submit" class="secondary">Send test to this topic</button>
+  </form>
+
   <h3>Dates being checked</h3>
   {% if dates %}
     <p class="muted">{{ dates | map('string') | join(', ') }}</p>

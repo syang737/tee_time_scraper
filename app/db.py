@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS watches (
     min_players   INTEGER NOT NULL DEFAULT 0,
     holes         TEXT NOT NULL DEFAULT 'any',
     active        INTEGER NOT NULL DEFAULT 1,
+    ntfy_topic    TEXT,                   -- null = use the server-wide topic
     created_at    TEXT NOT NULL
 );
 
@@ -93,6 +94,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "last_purge_at" not in existing:
         conn.execute("ALTER TABLE poll_status ADD COLUMN last_purge_at TEXT")
 
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(watches)")}
+    if "ntfy_topic" not in existing:
+        # Null means "use the server-wide topic", so watches created before
+        # per-watch topics existed keep sending exactly where they did.
+        conn.execute("ALTER TABLE watches ADD COLUMN ntfy_topic TEXT")
+
 
 # --------------------------------------------------------------------------
 # watches
@@ -112,6 +119,7 @@ def _row_to_watch(row: sqlite3.Row) -> Watch:
         min_players=row["min_players"],
         holes=row["holes"],
         active=bool(row["active"]),
+        ntfy_topic=row["ntfy_topic"],
         created_at=row["created_at"],
     )
 
@@ -143,20 +151,21 @@ def save_watch(watch: Watch) -> int:
         watch.min_players,
         watch.holes,
         int(watch.active),
+        watch.ntfy_topic,
     )
     with connect() as conn:
         if watch.id:
             conn.execute(
                 """UPDATE watches SET label=?, courses=?, days=?, horizon_days=?,
                    specific_date=?, time_start=?, time_end=?, min_players=?,
-                   holes=?, active=? WHERE id=?""",
+                   holes=?, active=?, ntfy_topic=? WHERE id=?""",
                 (*fields, watch.id),
             )
             return watch.id
         cur = conn.execute(
             """INSERT INTO watches (label, courses, days, horizon_days, specific_date,
-               time_start, time_end, min_players, holes, active, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               time_start, time_end, min_players, holes, active, ntfy_topic, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (*fields, now_iso()),
         )
         return int(cur.lastrowid)

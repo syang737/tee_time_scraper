@@ -78,6 +78,21 @@
       </select>
     </fieldset>
 
+    <fieldset>
+      <legend>Where alerts go</legend>
+      <p class="hint">
+        Your own ntfy topic, so you get only your alerts. Pick something
+        unguessable &mdash; anyone who knows a topic name can read it &mdash;
+        then subscribe to the same name in the ntfy app on your phone.
+        Leave blank to use the server's shared topic.
+      </p>
+      <label for="ntfy_topic">ntfy topic</label>
+      <input type="text" id="ntfy_topic" name="ntfy_topic"
+             value="{{ watch.ntfy_topic or '' }}"
+             placeholder="golf-yourname-8f3k2p"
+             pattern="[A-Za-z0-9_-]{1,64}">
+    </fieldset>
+
     <label class="check">
       <input type="checkbox" name="active" value="on" {{ 'checked' if watch.active }}>
       Active (watching now)

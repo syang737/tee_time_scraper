@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -151,7 +152,7 @@ async def dashboard(request: Request):
 # --------------------------------------------------------------------------
 
 
-def _clean_time(value: str) -> str | None:
+def _blank_to_none(value: str) -> str | None:
     value = (value or "").strip()
     return value or None
 
@@ -168,6 +169,7 @@ def _watch_from_form(
     min_players: int,
     holes: str,
     active: bool,
+    ntfy_topic: str = "",
 ) -> Watch:
     return Watch(
         id=watch_id,
@@ -175,12 +177,13 @@ def _watch_from_form(
         courses=[c for c in courses if c in config.COURSES],
         days=[d for d in days if d in WEEKDAYS],
         horizon_days=max(0, min(horizon_days, 90)),
-        specific_date=_clean_time(specific_date),
-        time_start=_clean_time(time_start),
-        time_end=_clean_time(time_end),
+        specific_date=_blank_to_none(specific_date),
+        time_start=_blank_to_none(time_start),
+        time_end=_blank_to_none(time_end),
         min_players=max(0, min(min_players, 4)),
         holes=holes if holes in ("9", "18", "any") else "any",
         active=active,
+        ntfy_topic=_blank_to_none(ntfy_topic),
     )
 
 
@@ -231,6 +234,7 @@ async def save_watch(
     # An unchecked checkbox is simply absent from the POST, so the default
     # here has to mean "off" -- otherwise unchecking it never takes effect.
     active: str = Form(""),
+    ntfy_topic: str = Form(""),
 ):
     watch = _watch_from_form(
         int(watch_id) if watch_id.strip() else None,
@@ -244,6 +248,7 @@ async def save_watch(
         min_players,
         holes,
         active == "on",
+        ntfy_topic,
     )
 
     error = _validate(watch)
@@ -282,6 +287,20 @@ def _validate(watch: Watch) -> str | None:
                 return "Times must look like HH:MM (24-hour)."
     if watch.time_start and watch.time_end and watch.time_start > watch.time_end:
         return "The earliest time must come before the latest time."
+    if watch.ntfy_topic:
+        # ntfy accepts these characters in a topic. A typo here would send
+        # alerts somewhere nobody is subscribed, and fail silently, so catch
+        # it at save time instead.
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", watch.ntfy_topic):
+            return (
+                "The ntfy topic can only use letters, numbers, dashes and "
+                "underscores (up to 64 characters)."
+            )
+    if not watch.ntfy_topic and not config.NTFY_TOPIC:
+        return (
+            "This watch needs an ntfy topic -- the server has no default one "
+            "configured, so alerts would have nowhere to go."
+        )
     return None
 
 
@@ -299,6 +318,7 @@ async def watch_detail(request: Request, watch_id: int):
             "courses": config.COURSES,
             "slots": db.recent_slots(watch_id=watch_id, limit=100),
             "dates": watch.candidate_dates(today),
+            "default_topic": config.NTFY_TOPIC,
         },
     )
 
@@ -322,3 +342,18 @@ async def test_notification():
     async with httpx.AsyncClient() as client:
         await notify.send_test_alert(client)
     return RedirectResponse("/", status_code=303)
+
+
+@app.post("/watches/{watch_id}/test-notification")
+async def test_watch_notification(watch_id: int):
+    """Push a test to this watch's own topic.
+
+    Without this, someone setting up their own topic has no way to tell a
+    working subscription from a typo until a tee time they wanted goes by
+    unannounced.
+    """
+    watch = db.get_watch(watch_id)
+    if watch is not None:
+        async with httpx.AsyncClient() as client:
+            await notify.send_test_alert(client, topic=notify.topic_for(watch))
+    return RedirectResponse(f"/watches/{watch_id}", status_code=303)

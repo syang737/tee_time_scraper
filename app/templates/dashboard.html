@@ -10,13 +10,15 @@
   {% else %}
   <table>
     <thead>
-      <tr><th>Watch</th><th>Criteria</th><th>Status</th><th></th></tr>
+      <tr><th>Watch</th><th>Criteria</th><th>Alerts to</th><th>Status</th><th></th></tr>
     </thead>
     <tbody>
       {% for w in watches %}
       <tr class="{{ 'inactive' if not w.active }}">
         <td><a href="/watches/{{ w.id }}"><strong>{{ w.label or 'Watch #' ~ w.id }}</strong></a></td>
         <td class="criteria">{{ w.describe() }}</td>
+        <td><code>{{ w.ntfy_topic or ntfy_topic or '-' }}</code>
+            {% if not w.ntfy_topic %}<span class="muted">(default)</span>{% endif %}</td>
         <td>
           {% if w.active %}<span class="pill on">watching</span>
           {% else %}<span class="pill off">paused</span>{% endif %}

@@ -68,38 +68,78 @@ class WatchResult:
         return self.fetches > 0 and self.failures == self.fetches
 
 
+# One cycle's worth of tee times, keyed by (course_key, date).
+Key = tuple[str, dt.date]
+
+
+@dataclass
+class Cycle:
+    """What a single poll cycle fetched, shared across every watch.
+
+    Watches overlap heavily -- friends want the same courses on the same
+    weekend -- so fetching per watch would send the same request many times
+    and grow linearly with the number of people using this. Fetching each
+    course/date once per cycle keeps the request count bounded by what is
+    actually being watched, not by how many watches there are.
+    """
+
+    slots: dict[Key, list[TeeTimeSlot]] = field(default_factory=dict)
+    failures: dict[Key, str] = field(default_factory=dict)
+
+
+def required_keys(watches: list[Watch], today: dt.date) -> set[Key]:
+    """The distinct course/date pairs this set of watches needs."""
+    keys: set[Key] = set()
+    for watch in watches:
+        for date in watch.candidate_dates(today):
+            for course_key in watch.courses:
+                if course_key in config.COURSES:
+                    keys.add((course_key, date))
+    return keys
+
+
+async def fetch_cycle(client: httpx.AsyncClient, keys: set[Key]) -> Cycle:
+    """Fetch every needed course/date exactly once."""
+    cycle = Cycle()
+    for index, key in enumerate(sorted(keys, key=lambda k: (k[1], k[0]))):
+        course_key, date = key
+        if config.REQUEST_DELAY_SECONDS and index:
+            # Space the requests out rather than bursting the whole cycle at
+            # the course's server at once.
+            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+        try:
+            cycle.slots[key] = await foreup_client.fetch_times(
+                client, config.COURSES[course_key], date
+            )
+        except ForeUpError as exc:
+            # One bad course/date must not stop the rest of the cycle.
+            cycle.failures[key] = str(exc)
+            log.warning("Fetch failed for %s on %s: %s", course_key, date, exc)
+    return cycle
+
+
 async def process_watch(
-    client: httpx.AsyncClient, watch: Watch, now: dt.datetime
+    client: httpx.AsyncClient, watch: Watch, now: dt.datetime, cycle: Cycle
 ) -> WatchResult:
-    """Poll every course/date this watch cares about and notify on matches."""
+    """Match one watch against the cycle's slots and notify on what it wants."""
     assert watch.id is not None
-    today = now.date()
-    dates = watch.candidate_dates(today)
     result = WatchResult()
     matches = result.matches
 
-    for course_key in watch.courses:
-        course = config.COURSES.get(course_key)
-        if course is None:
-            log.warning("Watch %s references unknown course %r", watch.id, course_key)
-            continue
-
-        for date in dates:
-            if config.REQUEST_DELAY_SECONDS and result.fetches:
-                # Space the requests out rather than bursting the whole
-                # cycle at the course's server at once.
-                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
-            result.fetches += 1
-            try:
-                slots = await foreup_client.fetch_times(client, course, date)
-            except ForeUpError as exc:
-                # One bad course/date must not stop the rest of the cycle.
-                result.failures += 1
-                result.last_failure = str(exc)
-                log.warning("Fetch failed for %s on %s: %s", course_key, date, exc)
+    for date in watch.candidate_dates(now.date()):
+        for course_key in watch.courses:
+            if course_key not in config.COURSES:
+                log.warning("Watch %s references unknown course %r", watch.id, course_key)
                 continue
 
-            for slot in slots:
+            key = (course_key, date)
+            result.fetches += 1
+            if key in cycle.failures:
+                result.failures += 1
+                result.last_failure = cycle.failures[key]
+                continue
+
+            for slot in cycle.slots.get(key, []):
                 # Slots earlier today have already teed off.
                 if slot.start.replace(tzinfo=TZ) <= now:
                     continue
@@ -130,13 +170,20 @@ async def poll_once(
     total = 0
     errors: list[str] = []
 
+    active: list[Watch] = []
     for watch in db.list_watches(active_only=True):
         if watch.is_expired(now.date()):
             log.info("Watch %s has passed its date; deactivating", watch.id)
             db.set_watch_active(watch.id, False)
             continue
+        active.append(watch)
+
+    # Fetch once for everyone, then let each watch pick from the same data.
+    cycle = await fetch_cycle(client, required_keys(active, now.date()))
+
+    for watch in active:
         try:
-            result = await process_watch(client, watch, now)
+            result = await process_watch(client, watch, now, cycle)
         except Exception as exc:  # keep the loop alive no matter what
             errors.append(f"watch {watch.id}: {exc}")
             log.exception("Watch %s failed", watch.id)

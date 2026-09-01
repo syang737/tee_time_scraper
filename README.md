@@ -38,6 +38,30 @@ A slot has to satisfy **every** criterion on one of your watches:
 - **Days** — which weekdays, over a look-ahead horizon (default 14 days), or
   one specific date.
 
+## Sharing it with friends
+
+Each watch can name **its own ntfy topic**, so several people can use one
+instance and each get only their own alerts on their own phone. A friend
+creates a watch, sets a topic nobody else knows, and subscribes to that same
+topic in the ntfy app; the watch detail page has a *Send test to this topic*
+button to confirm the subscription before relying on it. Leaving the field
+blank falls back to the server-wide `NTFY_TOPIC`.
+
+Alerts never cross over: dedup state is keyed per watch, so two people
+watching the same tee time each get their own notification, and neither
+suppresses the other's.
+
+Polling load does **not** grow with the number of watches. Each course/date
+is fetched once per cycle and every watch is matched against that same
+result, so ten friends watching the same weekend costs the same upstream
+requests as one.
+
+One caveat: the GUI has a single shared password, so anyone who can log in
+can see and edit everyone's watches. That's fine among friends — no course
+logins or payment details are stored — but it is not real multi-tenancy.
+Naming watches after their owner ("Simon — Saturday early") keeps the
+dashboard readable.
+
 Alerts are deduplicated so you get pinged about a genuine opening, not about
 the same slot every 30 seconds:
 

@@ -72,6 +72,10 @@ class Watch:
     min_players: int = 0  # slot must have >= this many open spots; 0 = any
     holes: str = "any"  # "9" | "18" | "any"
     active: bool = True
+    # Where this watch's alerts go. None falls back to the server-wide topic,
+    # so each person can point their own watches at their own phone without
+    # seeing anyone else's alerts.
+    ntfy_topic: str | None = None
     created_at: str | None = None
 
     def candidate_dates(self, today: dt.date) -> list[dt.date]:

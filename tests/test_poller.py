@@ -111,6 +111,16 @@ def test_a_slot_recorded_without_a_notification_still_notifies():
 # --------------------------------------------------------------------------
 
 
+async def _run_watch(watch, now, client=None):
+    """Fetch what this one watch needs, then process it.
+
+    Fetching is now shared across all watches in a cycle, so a single-watch
+    test has to assemble its own cycle first.
+    """
+    cycle = await poller.fetch_cycle(client, poller.required_keys([watch], now.date()))
+    return await poller.process_watch(client, watch, now, cycle)
+
+
 def run(coro):
     return asyncio.run(coro)
 
@@ -127,7 +137,7 @@ def test_only_matching_slots_are_notified(monkeypatch, saved_watch):
     # Four candidate dates over the 14-day horizon; only the first returns data.
     install(monkeypatch, [available], notifier)
 
-    result = run(poller.process_watch(None, saved_watch, NOW))
+    result = run(_run_watch(saved_watch, NOW))
 
     assert [s.time_str for s in result.matches] == ["08:00"]
     assert [s.time_str for s in notifier.sent] == ["08:00"]
@@ -138,10 +148,10 @@ def test_the_same_open_slot_is_not_notified_twice_in_a_row(monkeypatch, saved_wa
     slot = make_slot(time="08:00", spots=2)
 
     install(monkeypatch, [[slot]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW))
+    run(_run_watch(saved_watch, NOW))
 
     install(monkeypatch, [[slot]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW + dt.timedelta(seconds=30)))
+    run(_run_watch(saved_watch, NOW + dt.timedelta(seconds=30)))
 
     assert len(notifier.sent) == 1
 
@@ -151,16 +161,16 @@ def test_a_slot_that_reopens_after_being_taken_notifies_again(monkeypatch, saved
     slot = make_slot(time="08:00", spots=2)
 
     install(monkeypatch, [[slot]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW))
+    run(_run_watch(saved_watch, NOW))
 
     # Someone books it: it vanishes from the response.
     install(monkeypatch, [[]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW + dt.timedelta(minutes=1)))
+    run(_run_watch(saved_watch, NOW + dt.timedelta(minutes=1)))
     assert db.get_seen_slot(saved_watch.id, slot.slot_key)["still_open"] == 0
 
     # They cancel: it comes back, and that is a fresh opening worth an alert.
     install(monkeypatch, [[slot]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW + dt.timedelta(minutes=2)))
+    run(_run_watch(saved_watch, NOW + dt.timedelta(minutes=2)))
 
     assert len(notifier.sent) == 2
 
@@ -170,11 +180,11 @@ def test_a_failed_fetch_does_not_mark_everything_as_taken(monkeypatch, saved_wat
     slot = make_slot(time="08:00", spots=2)
 
     install(monkeypatch, [[slot]], notifier)
-    run(poller.process_watch(None, saved_watch, NOW))
+    run(_run_watch(saved_watch, NOW))
 
     # The API blips on the very first date fetched.
     install(monkeypatch, [ForeUpError("boom")], notifier)
-    run(poller.process_watch(None, saved_watch, NOW + dt.timedelta(minutes=1)))
+    run(_run_watch(saved_watch, NOW + dt.timedelta(minutes=1)))
 
     row = db.get_seen_slot(saved_watch.id, slot.slot_key)
     assert row["still_open"] == 1, "a transient error must not look like a booking"
@@ -193,7 +203,7 @@ def test_slots_already_underway_today_are_ignored(monkeypatch, saved_watch):
     future = make_slot(time="17:00", spots=4, date=(today.year, today.month, today.day))
     install(monkeypatch, [[past, future]], notifier)
 
-    result = run(poller.process_watch(None, db.get_watch(saved_watch.id), NOW))
+    result = run(_run_watch(db.get_watch(saved_watch.id), NOW))
 
     assert [s.time_str for s in result.matches] == ["17:00"]
 
@@ -232,7 +242,7 @@ def test_one_broken_alert_does_not_cost_the_rest_of_the_cycle(
 
         monkeypatch.setattr(poller.foreup_client, "fetch_times", fake_fetch)
         async with httpx.AsyncClient() as client:
-            return await poller.process_watch(client, saved_watch, NOW)
+            return await _run_watch(saved_watch, NOW, client)
 
     result = run(scenario())
 
@@ -250,12 +260,12 @@ def test_a_failed_push_is_retried_on_the_next_poll(monkeypatch, saved_watch):
     slot = make_slot(time="08:00", spots=2)
 
     install(monkeypatch, [[slot]], failing)
-    run(poller.process_watch(None, saved_watch, NOW))
+    run(_run_watch(saved_watch, NOW))
     assert db.get_seen_slot(saved_watch.id, slot.slot_key)["notify_count"] == 0
 
     working = FakeNotifier()
     install(monkeypatch, [[slot]], working)
-    run(poller.process_watch(None, saved_watch, NOW + dt.timedelta(seconds=30)))
+    run(_run_watch(saved_watch, NOW + dt.timedelta(seconds=30)))
 
     assert len(working.sent) == 1, "an unsent alert must not be treated as delivered"
 
