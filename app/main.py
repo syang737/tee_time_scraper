@@ -42,6 +42,21 @@ PUBLIC_PATHS = {"/login", "/healthz"}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+
+    # Say loudly at startup what would otherwise only show up as a failed
+    # login much later, when it looks like a wrong password instead of a
+    # missing setting.
+    if not auth.is_configured():
+        log.error(
+            "GUI_PASSWORD is empty -- nobody will be able to log in. Set it in "
+            ".env and restart; .env is only read when the process starts."
+        )
+    if not config.NTFY_TOPIC:
+        log.warning(
+            "NTFY_TOPIC is empty -- watches without their own topic have "
+            "nowhere to send alerts."
+        )
+
     stop = asyncio.Event()
     task = asyncio.create_task(poller.run_forever(stop))
     app.state.poller_stop = stop
@@ -90,6 +105,23 @@ async def login_form(request: Request):
 
 @app.post("/login")
 async def login_submit(request: Request, password: str = Form("")):
+    if not auth.is_configured():
+        # No password is set, so nothing could ever match. Saying "incorrect
+        # password" here would send you hunting for a typo that isn't there.
+        log.error("Login attempted but GUI_PASSWORD is empty in the running process")
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "error": (
+                    "This server has no GUI_PASSWORD set, so no password can "
+                    "work. Set it in .env, then restart the service "
+                    "(systemctl restart teetimes) -- .env is only read at "
+                    "startup."
+                )
+            },
+            status_code=503,
+        )
     if not auth.check_password(password):
         return templates.TemplateResponse(
             request,

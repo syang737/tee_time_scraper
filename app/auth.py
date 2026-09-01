@@ -15,9 +15,19 @@ SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 _serializer = URLSafeTimedSerializer(config.SECRET_KEY, salt="teetimes-session")
 
 
+def is_configured() -> bool:
+    """Whether a GUI password exists to check against at all.
+
+    Kept separate from check_password so a server with no password set can
+    say so, instead of reporting every attempt as a wrong password and
+    leaving you to wonder which of the two it is.
+    """
+    return bool(config.GUI_PASSWORD)
+
+
 def check_password(candidate: str) -> bool:
     """Constant-time comparison so the password can't be timed out of us."""
-    if not config.GUI_PASSWORD:
+    if not is_configured():
         return False
     return hmac.compare_digest(candidate, config.GUI_PASSWORD)
 
