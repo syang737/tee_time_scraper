@@ -3,6 +3,45 @@
 A `$5/month` Ubuntu instance (1 GB RAM) is more than enough — this is one
 Python process polling a JSON endpoint and writing to SQLite.
 
+## Quick start
+
+Create the instance (Lightsail → Linux/Unix → **Ubuntu 22.04 LTS** → $5 plan),
+give it a **static IP**, point a DNS `A` record at that IP, then:
+
+```bash
+ssh -i LightsailKey.pem ubuntu@<your-static-ip>
+git clone https://github.com/syang737/tee_time_scraper.git
+cd tee_time_scraper
+./deploy/setup.sh golf.potpourri.lol
+```
+
+That installs Python and Caddy, creates the venv, generates `.env` with a
+random password and ntfy topic, installs and starts the systemd service, gets
+a TLS certificate, caps the journal, and then verifies the whole thing. It
+prints the generated password and topic at the end.
+
+The one thing it cannot do is open the firewall — that lives in the AWS
+console. Lightsail → your instance → **Networking** → IPv4 Firewall: add
+**HTTP (80)** and **HTTPS (443)**, and leave **8000 closed**. Port 80 is
+required, since Let's Encrypt validates over it.
+
+Two other things worth knowing:
+
+```bash
+./deploy/setup.sh --check          # verify an install, change nothing
+git pull && ./deploy/setup.sh golf.potpourri.lol   # update in place
+```
+
+Re-running is safe: it never overwrites an existing `.env`.
+
+> **`.env` is only read when the service starts.** Editing it does nothing
+> until `sudo systemctl restart teetimes` — a running process's environment
+> is fixed at launch. `--check` compares the two and tells you when they have
+> drifted apart.
+
+The rest of this document is the same steps done by hand, which is worth
+reading if something goes wrong or you want to deviate.
+
 ## 1. Create the instance
 
 Lightsail → Create instance → Linux/Unix → **Ubuntu 22.04 LTS** → the $5 plan.

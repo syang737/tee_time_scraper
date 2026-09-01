@@ -84,7 +84,17 @@ cp .env.example .env      # then edit: GUI_PASSWORD, SECRET_KEY, NTFY_TOPIC
 
 Open http://localhost:8000, log in, and create a watch.
 
-For an always-on setup on Lightsail, see [deploy/DEPLOY.md](deploy/DEPLOY.md).
+For an always-on setup on Lightsail, clone the repo on the instance and run:
+
+```bash
+./deploy/setup.sh golf.example.com
+```
+
+That handles packages, venv, `.env` with generated secrets, the systemd
+service, HTTPS via Caddy, and log caps, then verifies the result.
+`./deploy/setup.sh --check` re-verifies an existing install without changing
+anything. See [deploy/DEPLOY.md](deploy/DEPLOY.md) for the manual equivalent
+and troubleshooting.
 
 ## Configuration
 
