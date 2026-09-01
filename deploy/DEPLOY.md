@@ -104,6 +104,20 @@ Lightsail → your instance → **Networking** → IPv4 Firewall:
 
 ### Install Caddy
 
+Caddy is not in Ubuntu's default repositories, so **run this whole block** —
+`apt install caddy` on its own will report "Unable to locate package".
+
+On a freshly created instance apt is often already busy with the automatic
+first-boot updates, and you'll get `Could not get lock
+/var/lib/dpkg/lock-frontend`. Wait for it rather than removing the lock or
+killing the process, either of which can leave dpkg half-configured:
+
+```bash
+while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+  echo "waiting for the automatic updater..."; sleep 5
+done
+```
+
 ```bash
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
