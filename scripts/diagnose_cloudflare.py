@@ -28,7 +28,38 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+
+
+def _check_interpreter() -> None:
+    """Refuse to produce an inconclusive run.
+
+    The two rungs that matter both need curl_cffi. Running under the system
+    python instead of the project venv hides it, and the ladder then reports
+    "everything fails" for a reason that has nothing to do with Cloudflare.
+    """
+    venv_python = REPO / ".venv" / "bin" / "python"
+    try:
+        import curl_cffi  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    print("curl_cffi is not importable, so the two strategies that actually\n"
+          "matter cannot be tested and this run would tell you nothing.\n")
+    if venv_python.exists() and Path(sys.prefix) != (REPO / ".venv"):
+        print(f"You are running {sys.executable}, not the project venv.")
+        print(f"Re-run with:\n\n    {venv_python} {' '.join(sys.argv)}\n")
+    else:
+        print("Install it into the venv:\n")
+        print(f"    {REPO}/.venv/bin/pip install -r {REPO}/requirements.txt\n")
+    print("Or, to deploy the current requirements properly:\n")
+    print("    ./deploy/setup.sh <your-domain>\n")
+    raise SystemExit(2)
+
+
+_check_interpreter()
 
 from app import config, cps_client, ezlinks_client  # noqa: E402
 

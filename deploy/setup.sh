@@ -86,6 +86,24 @@ run_checks() {
         fi
     fi
 
+    # Dependencies drift when requirements.txt gains an entry and only
+    # --check is re-run; --check installs nothing, so say so rather than
+    # letting the app fail later for a reason that looks unrelated.
+    if [[ -x "$REPO_DIR/.venv/bin/python" ]]; then
+        local missing=""
+        while read -r module; do
+            "$REPO_DIR/.venv/bin/python" -c "import $module" 2>/dev/null \
+                || missing="$missing $module"
+        done < <(printf '%s\n' fastapi httpx curl_cffi)
+        if [[ -n "$missing" ]]; then
+            fail "missing from the venv:$missing"
+            info "  ./deploy/setup.sh ${DOMAIN:-<your-domain>}   # installs them"
+            failures=$((failures + 1))
+        else
+            ok "python dependencies are installed"
+        fi
+    fi
+
     if curl -fsS --max-time 5 "http://127.0.0.1:$APP_PORT/healthz" >/dev/null 2>&1; then
         ok "app answers on 127.0.0.1:$APP_PORT"
     else
