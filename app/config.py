@@ -95,10 +95,11 @@ EZLINKS_EARLIEST = os.getenv("EZLINKS_EARLIEST", "5:00 AM")
 EZLINKS_LATEST = os.getenv("EZLINKS_LATEST", "8:00 PM")
 EZLINKS_SEARCH_PLAYERS = os.getenv("EZLINKS_SEARCH_PLAYERS", "1")
 
-# Union sits behind Cloudflare, which usually rejects on TLS fingerprint
-# rather than headers. curl_cffi replays a real Chrome handshake; set this
-# empty to force plain httpx instead.
-EZLINKS_IMPERSONATE = os.getenv("EZLINKS_IMPERSONATE", "chrome124")
+# Bergen and Union both sit behind Cloudflare, which usually rejects on TLS
+# fingerprint rather than headers. curl_cffi replays a real Chrome
+# handshake; set this empty to force plain httpx instead. EZLINKS_IMPERSONATE
+# is still read for anyone who set it before this became shared.
+IMPERSONATE = os.getenv("IMPERSONATE") or os.getenv("EZLINKS_IMPERSONATE") or "chrome124"
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,7 @@ def _seconds(name: str, default: int) -> int:
 
 
 PROVIDER_MIN_INTERVAL_SECONDS: dict[str, int] = {
+    "cps": _seconds("CPS_MIN_INTERVAL_SECONDS", 120),
     "ezlinks": _seconds("EZLINKS_MIN_INTERVAL_SECONDS", 120),
 }
 

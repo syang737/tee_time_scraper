@@ -26,7 +26,7 @@ from typing import Any
 
 import httpx
 
-from . import config
+from . import browser_http, config
 from .models import TeeTimeSlot
 
 log = logging.getLogger(__name__)
@@ -38,6 +38,9 @@ class EzLinksError(RuntimeError):
 
 class EzLinksBlocked(EzLinksError):
     """Cloudflare turned us away rather than the API failing."""
+
+
+_session = browser_http.BrowserSession(config.EZLINKS_BASE_URL, "/")
 
 
 # Field names in the response payload, named so the parsing reads.
@@ -224,72 +227,26 @@ def _prefer(
     return existing.green_fee is None or price < existing.green_fee
 
 
-async def _post(client: httpx.AsyncClient, payload: dict[str, Any]) -> Any:
-    """POST the search, working around Cloudflare where we can.
-
-    Cloudflare most often rejects on TLS fingerprint rather than headers, so
-    plain httpx can be challenged no matter how browser-like the headers
-    look. curl_cffi replays a real Chrome handshake and is used when it is
-    installed; it is synchronous, so it runs off the event loop.
-    """
-    if config.EZLINKS_IMPERSONATE:
-        try:
-            from curl_cffi import requests as curl_requests
-        except ImportError:
-            log.warning(
-                "EZLINKS_IMPERSONATE is set but curl_cffi is not installed; "
-                "falling back to httpx, which Cloudflare may challenge"
-            )
-        else:
-            return await asyncio.to_thread(
-                _post_impersonated, curl_requests, payload
-            )
-
+async def _post(client: Any, payload: dict[str, Any]) -> Any:
+    """POST the search through the shared warmed, impersonated session."""
     try:
-        response = await client.post(
-            config.EZLINKS_API_URL, json=payload, headers=DEFAULT_HEADERS
+        return await _session.request_json(
+            "POST", config.EZLINKS_API_URL, headers=DEFAULT_HEADERS, json=payload
         )
-    except httpx.HTTPError as exc:
+    except browser_http.BlockedError as exc:
+        raise EzLinksBlocked(str(exc)) from exc
+    except browser_http.TransportError as exc:
         raise EzLinksError(f"request to EZLinks failed: {exc}") from exc
-    return _decode(response.status_code, response.text)
 
 
-def _post_impersonated(curl_requests: Any, payload: dict[str, Any]) -> Any:
+def _decode(status: int, body: str) -> Any:
+    """Kept for the tests that pin how a challenge is reported."""
     try:
-        response = curl_requests.post(
-            config.EZLINKS_API_URL,
-            json=payload,
-            headers=DEFAULT_HEADERS,
-            impersonate=config.EZLINKS_IMPERSONATE,
-            timeout=30,
-        )
-    except Exception as exc:  # curl_cffi raises its own error types
-        raise EzLinksError(f"request to EZLinks failed: {exc}") from exc
-    return _decode(response.status_code, response.text)
-
-
-def _decode(status_code: int, body: str) -> Any:
-    """Turn a raw response into JSON, naming a Cloudflare block as such."""
-    if status_code in (403, 429, 503):
-        raise EzLinksBlocked(
-            f"EZLinks returned HTTP {status_code} -- this is usually "
-            "Cloudflare. See the Union County notes in README.md."
-        )
-    if status_code != 200:
-        raise EzLinksError(f"EZLinks returned HTTP {status_code}")
-
-    import json
-
-    try:
-        return json.loads(body)
-    except ValueError as exc:
-        # A challenge page is HTML, not JSON -- say which it was.
-        if "<html" in body[:200].lower():
-            raise EzLinksBlocked(
-                "EZLinks returned an HTML challenge page instead of JSON "
-                "(Cloudflare). See the Union County notes in README.md."
-            ) from exc
-        raise EzLinksError(f"EZLinks returned non-JSON: {exc}") from exc
+        return browser_http.decode(status, body, "EZLinks")
+    except browser_http.BlockedError as exc:
+        raise EzLinksBlocked(str(exc)) from exc
+    except browser_http.TransportError as exc:
+        raise EzLinksError(str(exc)) from exc
 
 
 async def fetch_times(

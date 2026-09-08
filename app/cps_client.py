@@ -23,7 +23,7 @@ from typing import Any
 
 import httpx
 
-from . import config
+from . import browser_http, config
 from .models import TeeTimeSlot
 
 log = logging.getLogger(__name__)
@@ -31,6 +31,15 @@ log = logging.getLogger(__name__)
 
 class CpsError(RuntimeError):
     """Raised when the API is unreachable or returns something unusable."""
+
+
+class CpsBlocked(CpsError):
+    """Cloudflare turned us away rather than the API failing."""
+
+
+# Warmed once, then reused: arriving with Cloudflare's own cookies is part of
+# looking like a browser.
+_session = browser_http.BrowserSession(config.CPS_BASE_URL, "/onlineres/")
 
 
 DEFAULT_HEADERS = {
@@ -191,20 +200,15 @@ async def fetch_times(
         return {}
 
     try:
-        response = await client.get(
+        payload = await _session.request_json(
+            "GET",
             config.CPS_API_URL,
-            params=build_params(courses, date),
             headers=DEFAULT_HEADERS,
+            params=build_params(courses, date),
         )
-    except httpx.HTTPError as exc:
+    except browser_http.BlockedError as exc:
+        raise CpsBlocked(str(exc)) from exc
+    except browser_http.TransportError as exc:
         raise CpsError(f"request to CPS failed: {exc}") from exc
-
-    if response.status_code != 200:
-        raise CpsError(f"CPS returned HTTP {response.status_code}")
-
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise CpsError(f"CPS returned non-JSON: {exc}") from exc
 
     return parse_response(payload, courses)
