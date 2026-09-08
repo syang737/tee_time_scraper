@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}How it works{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <h1>How it works</h1>
+  <p class="lede">
+    Weekend tee times at these courses get booked out almost as soon as they're
+    released. They come back only when somebody cancels &mdash; at a random
+    moment, and usually gone again within minutes. You'd never catch that by
+    refreshing the booking page.
+  </p>
+  <p>
+    So this checks for you, every 30 seconds, and buzzes your phone the instant
+    something you'd actually want opens up. Two things to set up, both quick.
+  </p>
+  <p class="muted">
+    One thing worth saying plainly: <strong>this never books anything for
+    you.</strong> It has no card and no course login. It tells you a slot is
+    free &mdash; you tap the notification and book it yourself, the normal way.
+  </p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+
+<div class="card">
+  <h2><span class="step-number">1</span> Getting the notifications</h2>
+  <p>
+    Alerts don't come by text or email. They come through a free app called
+    <strong>ntfy</strong> (say it "notify"). No account, no signup, no cost.
+  </p>
+
+  <ol class="steps">
+    <li>
+      <strong>Install ntfy on your phone.</strong>
+      <div class="muted">
+        Search "ntfy" in the
+        <a href="https://apps.apple.com/app/ntfy/id1625396347">iPhone App
+        Store</a> or on
+        <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy">Google
+        Play</a>. There's also a
+        <a href="https://ntfy.sh/app">browser version</a> if you'd rather not
+        install anything.
+      </div>
+    </li>
+    <li>
+      <strong>Open it and tap the <span class="key">+</span> button.</strong>
+      <div class="muted">
+        It'll ask you to "subscribe to a topic".
+      </div>
+    </li>
+    <li>
+      <strong>Type in your topic name, exactly.</strong>
+      {% if ntfy_topic %}
+      <div class="muted">Unless you've been given your own, it's this one:</div>
+      <p><code class="topic">{{ ntfy_topic }}</code></p>
+      {% else %}
+      <div class="muted">
+        Whoever set this up will give you one, or you can pick your own when
+        you create a watch.
+      </div>
+      {% endif %}
+      <div class="muted">
+        Leave the server as the default (<code>ntfy.sh</code>) and tap
+        Subscribe.
+      </div>
+    </li>
+    <li>
+      <strong>Check it actually works.</strong>
+      <div class="muted">
+        Come back here and press the button below. Your phone should buzz
+        within a second or two. If it doesn't, the topic name usually has a
+        typo in it &mdash; it has to match character for character.
+      </div>
+      <form method="post" action="/test-notification">
+        <button type="submit" class="secondary">Send me a test notification</button>
+      </form>
+    </li>
+  </ol>
+
+  <div class="callout">
+    <strong>A topic is just a secret word.</strong> Anyone who knows it can
+    read your alerts, and anyone who doesn't, can't find it. So don't use
+    something guessable like <code>golf</code>, and don't post it anywhere
+    public. That's the whole security model &mdash; it's why there's no
+    password or account to manage.
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+
+<div class="card">
+  <h2><span class="step-number">2</span> Setting up a watch</h2>
+  <p>
+    A <strong>watch</strong> is a saved description of the tee time you'd
+    happily take. Something like <em>"any of the three courses, Saturday or
+    Sunday, before 10:30am, room for at least two of us."</em>
+  </p>
+  <p>
+    You write that down once. The app then checks all three courses every 30
+    seconds and only bothers you when something matches
+    <strong>everything</strong> you asked for. A 2pm slot won't wake you up if
+    you said mornings.
+  </p>
+
+  <h3>What you choose</h3>
+  <dl class="what-you-choose">
+    <dt><span class="chip-icon">&#9971;</span> Courses</dt>
+    <dd>One, two, or all three. Most people tick all three &mdash; more chances.</dd>
+
+    <dt><span class="chip-icon">&#128197;</span> Days</dt>
+    <dd>
+      Which days of the week, and how far ahead to look. Saturday and Sunday
+      over the next 14 days covers "this weekend or next".
+    </dd>
+
+    <dt><span class="chip-icon">&#128340;</span> Time window</dt>
+    <dd>
+      Earliest and latest you'd tee off. Leave both blank if you'd take
+      anything.
+    </dd>
+
+    <dt><span class="chip-icon">&#128100;</span> Players</dt>
+    <dd>
+      The minimum number of open spots. Set 2 if there are two of you, so you
+      don't get alerted about a slot with only one space left.
+    </dd>
+
+    <dt>Holes</dt>
+    <dd>9, 18, or either.</dd>
+  </dl>
+
+  <h3>What happens then</h3>
+  <ol class="steps">
+    <li>A matching slot opens up, usually because somebody cancelled.</li>
+    <li>Your phone buzzes within about 30 seconds.</li>
+    <li>
+      You tap the notification and it opens that course's booking page,
+      already on the right day.
+    </li>
+    <li>You book it. Quickly &mdash; other people want it too.</li>
+  </ol>
+
+  <p>
+    <a class="cta" href="/watches/new">Create your first watch &rarr;</a>
+  </p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+
+<div class="card">
+  <h2>Worth knowing</h2>
+  <dl class="what-you-choose">
+    <dt>You'll get a reminder</dt>
+    <dd>
+      If a slot is still free after 10 minutes, you get nudged again, in case
+      you missed the first one. Once somebody books it, the nudging stops.
+    </dd>
+
+    <dt>You won't get spammed</dt>
+    <dd>
+      Each tee time only alerts you once. If it gets taken and later freed up
+      again, that counts as new and you'll hear about it.
+    </dd>
+
+    <dt>Pause instead of deleting</dt>
+    <dd>
+      Not playing for a few weeks? Hit <strong>Pause</strong> on the watch and
+      it stops alerting without losing the settings. <strong>Resume</strong>
+      when you want it back.
+    </dd>
+
+    <dt>Sharing with friends</dt>
+    <dd>
+      Each watch can point at its own ntfy topic, so several people can use
+      this and everyone only hears about their own. Put your own topic in when
+      you create the watch, and name the watch after yourself so it's obvious
+      whose is whose.
+    </dd>
+
+    <dt>Nothing arriving?</dt>
+    <dd>
+      Open the watch and press <strong>Send test to this topic</strong>. If the
+      test arrives but real alerts don't, your criteria are probably just
+      stricter than what's coming free &mdash; try widening the time window.
+    </dd>
+  </dl>
+</div>
+
+<p><a href="/">&larr; Back to your watches</a></p>
+{% endblock %}

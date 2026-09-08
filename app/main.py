@@ -158,6 +158,14 @@ async def healthz():
 # --------------------------------------------------------------------------
 
 
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    """First-run guide: how alerts reach your phone, and what a watch is."""
+    return templates.TemplateResponse(
+        request, "help.html", {"ntfy_topic": config.NTFY_TOPIC}
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     watches = db.list_watches()

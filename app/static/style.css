@@ -40,8 +40,14 @@ header {
   border-bottom: 1px solid var(--line);
 }
 
-.brand { font-weight: 600; text-decoration: none; color: var(--ink); }
-nav a { margin-left: 1rem; }
+.brand { font-weight: 600; text-decoration: none; color: var(--ink); white-space: nowrap; }
+nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+
+/* Three nav links squeeze the title onto two lines on a phone; stack them
+   instead so both stay readable. */
+@media (max-width: 30rem) {
+  header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+}
 a { color: var(--green); }
 
 main {
@@ -211,3 +217,94 @@ dl.status dt { color: var(--muted); }
 dl.status dd { margin: 0; }
 
 code { background: var(--bg); padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+
+/* --- help page and first-run welcome ----------------------------------- */
+
+.lede { font-size: 1.02rem; }
+.welcome .lede { font-weight: 600; margin-bottom: 0.4rem; }
+.welcome p { max-width: 46rem; }
+
+.cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 500;
+  text-decoration: none;
+}
+.cta:hover { opacity: 0.9; }
+
+/* Keep the button and the opt-out as whole units, so the link wraps to its
+   own line rather than breaking mid-sentence around the button. */
+.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; }
+.secondary-link { font-size: 0.9rem; }
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.steps { margin: 0.75rem 0 0; padding-left: 1.4rem; }
+.steps > li { margin-bottom: 0.9rem; }
+.steps > li::marker { color: var(--muted); font-weight: 600; }
+.steps .muted { font-size: 0.9rem; margin-top: 0.15rem; }
+.steps form { margin: 0; }
+.steps button { margin-top: 0.6rem; }
+
+.key {
+  display: inline-block;
+  min-width: 1.3rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  font-weight: 700;
+  text-align: center;
+}
+
+code.topic {
+  display: inline-block;
+  padding: 0.35rem 0.7rem;
+  border: 1px dashed var(--green);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--green);
+  word-break: break-all;   /* a long topic must not widen the page */
+}
+
+.callout {
+  margin-top: 1.1rem;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--green);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+  font-size: 0.92rem;
+}
+
+.what-you-choose { margin: 0.5rem 0 0; }
+.what-you-choose dt {
+  margin-top: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.what-you-choose dd {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 44rem;
+}

@@ -93,3 +93,57 @@ def test_notifications_still_use_the_single_line_description():
     # describe() stays: a push notification wants one line, not markup.
     watch = Watch(id=1, courses=["weequahic"], min_players=2, time_start="07:00")
     assert "|" in watch.describe()
+
+
+# --------------------------------------------------------------------------
+# first-run guide
+# --------------------------------------------------------------------------
+
+
+def test_the_guide_requires_a_login(temp_db):
+    # It names the ntfy topic, which is the only thing keeping someone else's
+    # alerts private, so it must not be readable without logging in.
+    with TestClient(main.app) as anonymous:
+        response = anonymous.get("/help", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+
+def test_the_guide_covers_both_talking_points(client):
+    body = client.get("/help").text
+    assert "Getting the notifications" in body
+    assert "Setting up a watch" in body
+
+
+def test_the_guide_names_the_topic_to_subscribe_to(client, monkeypatch):
+    # Without the exact string to type, the ntfy step is unguessable.
+    monkeypatch.setattr(config, "NTFY_TOPIC", "teetimes-abc123xyz")
+    assert "teetimes-abc123xyz" in client.get("/help").text
+
+
+def test_the_guide_links_to_the_ntfy_apps(client):
+    body = client.get("/help").text
+    assert "apps.apple.com" in body
+    assert "play.google.com" in body
+
+
+def test_the_guide_says_it_never_books_for_you(client):
+    # The single most important expectation to set.
+    assert "never books anything for" in client.get("/help").text
+
+
+def test_the_guide_offers_a_test_notification(client):
+    assert 'action="/test-notification"' in client.get("/help").text
+
+
+def test_an_empty_dashboard_points_at_the_guide(client, temp_db):
+    # The empty dashboard is the actual first-run moment.
+    for w in db.list_watches():
+        db.delete_watch(w.id)
+    body = client.get("/").text
+    assert 'href="/help"' in body
+    assert "Nothing being watched yet" in body
+
+
+def test_the_guide_stays_reachable_once_watches_exist(client):
+    assert 'href="/help"' in client.get("/").text

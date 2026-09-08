@@ -38,6 +38,14 @@ A slot has to satisfy **every** criterion on one of your watches:
 - **Days** — which weekdays, over a look-ahead horizon (default 14 days), or
   one specific date.
 
+## Onboarding someone new
+
+Send them the URL and the GUI password. Once logged in, an empty dashboard
+points them at **How it works** (`/help`), which walks through installing the
+ntfy app and subscribing to a topic, explains what a watch is, and has a
+button to fire a test notification so they can confirm it reaches their phone
+before relying on it. It's also in the nav permanently.
+
 ## Sharing it with friends
 
 Each watch can name **its own ntfy topic**, so several people can use one

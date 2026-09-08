@@ -5,8 +5,20 @@
 <div class="card">
   <h1>Watches</h1>
   {% if not watches %}
-    <p class="muted">Nothing being watched yet. <a href="/watches/new">Create your first watch</a>
-    to get a push the moment a matching tee time opens up.</p>
+    {# The empty dashboard is the actual first-run moment, so point at the
+       guide here rather than hoping people find it in the nav. #}
+    <div class="welcome">
+      <p class="lede">Nothing being watched yet.</p>
+      <p>
+        Tell this app what sort of tee time you're after, and it will buzz your
+        phone the moment one opens up &mdash; usually because somebody
+        cancelled. Two minutes to set up.
+      </p>
+      <div class="cta-row">
+        <a class="cta" href="/help">Show me how it works &rarr;</a>
+        <a class="secondary-link" href="/watches/new">Skip, I'll figure it out</a>
+      </div>
+    </div>
   {% else %}
   <ul class="watch-list">
     {% for w in watches %}
