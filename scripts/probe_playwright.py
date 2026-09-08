@@ -125,9 +125,20 @@ def main() -> int:
 
     results = {}
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
+        try:
+            browser = p.chromium.launch(
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+        except Exception as exc:
+            # pip installs the library; the browser binary is a separate step.
+            if "Executable doesn" in str(exc) or "playwright install" in str(exc):
+                print("\nChromium itself is not downloaded yet. Installing the")
+                print("Python package does not fetch the browser:\n")
+                print(f"    {REPO}/.venv/bin/playwright install chromium\n")
+                print("On Ubuntu it may also want system libraries:")
+                print(f"    sudo {REPO}/.venv/bin/playwright install-deps chromium")
+                return 2
+            raise
         context = browser.new_context(
             locale="en-US",
             timezone_id="America/New_York",
