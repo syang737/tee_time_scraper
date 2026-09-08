@@ -28,16 +28,52 @@ die()   { printf '\n\033[31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 
+# apt uses several locks, and they are not interchangeable: apt-get update
+# takes lists/lock while dpkg takes lock-frontend. Watching only one lets the
+# script march on and fail anyway.
+APT_LOCKS=(
+    /var/lib/dpkg/lock-frontend
+    /var/lib/dpkg/lock
+    /var/lib/apt/lists/lock
+    /var/cache/apt/archives/lock
+)
+
+apt_lock_holder() {
+    local lock
+    for lock in "${APT_LOCKS[@]}"; do
+        [[ -e "$lock" ]] || continue
+        if sudo fuser "$lock" >/dev/null 2>&1; then
+            printf '%s %s' "$lock" "$(sudo fuser "$lock" 2>&1 | tr -d ' \n' | tail -c 12)"
+            return 0
+        fi
+    done
+    return 1
+}
+
 wait_for_apt() {
-    # Fresh cloud instances run unattended-upgrades on first boot. Waiting is
-    # the only safe option: removing the lock or killing the process can
-    # leave dpkg half-configured.
-    if sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
-        info "apt is busy (probably first-boot updates); waiting..."
-        while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-            sleep 5
-        done
-    fi
+    # Fresh cloud instances run unattended-upgrades on first boot, so waiting
+    # is normally right -- removing a lock or killing the holder can leave
+    # dpkg half-configured. But a genuinely stuck apt never clears, so give up
+    # after a while and say what is holding it rather than hanging forever.
+    local waited=0 limit="${APT_LOCK_TIMEOUT:-300}" held
+    held="$(apt_lock_holder)" || return 0
+
+    info "apt is locked ($held); waiting up to ${limit}s..."
+    while held="$(apt_lock_holder)"; do
+        if (( waited >= limit )); then
+            echo
+            fail "apt is still locked after ${limit}s: $held"
+            info "Something is stuck rather than merely busy. Check it with:"
+            info "  ps -o pid,etime,cmd -p \$(sudo fuser /var/lib/apt/lists/lock 2>/dev/null)"
+            info ""
+            info "Nothing here needs apt if the system packages are already"
+            info "installed. To skip it and just update the app:"
+            info "  ./deploy/setup.sh ${DOMAIN:-<your-domain>} --skip-apt"
+            die "apt unavailable"
+        fi
+        sleep 5
+        waited=$((waited + 5))
+    done
 }
 
 apt_install() {
@@ -149,8 +185,27 @@ run_checks() {
 # install steps
 # ---------------------------------------------------------------------------
 
+system_packages_present() {
+    local pkg
+    for pkg in python3-venv python3-pip git curl ca-certificates; do
+        dpkg -s "$pkg" >/dev/null 2>&1 || return 1
+    done
+    command -v caddy >/dev/null 2>&1 || return 1
+    return 0
+}
+
 install_packages() {
     bold "Installing packages"
+    # Re-running on a provisioned box should not need apt at all -- which
+    # also means a stuck apt cannot block a plain application update.
+    if (( SKIP_APT )); then
+        ok "skipping apt (--skip-apt)"
+        return
+    fi
+    if system_packages_present; then
+        ok "system packages already installed (skipping apt)"
+        return
+    fi
     wait_for_apt
     sudo apt-get update -qq
     apt_install python3-venv python3-pip git curl ca-certificates
@@ -274,6 +329,19 @@ cap_journal() {
 DOMAIN=""
 NEW_CREDENTIALS=0
 CHECK_ONLY=0
+SKIP_APT=0
+
+# Pull --skip-apt out wherever it appears, so it composes with the domain
+# in either order and leaves no empty positional behind.
+_args=()
+for _arg in "$@"; do
+    if [[ "$_arg" == "--skip-apt" ]]; then
+        SKIP_APT=1
+    else
+        _args+=("$_arg")
+    fi
+done
+set -- "${_args[@]+"${_args[@]}"}"
 
 case "${1:-}" in
     --check) CHECK_ONLY=1; DOMAIN="${2:-}" ;;
@@ -283,6 +351,7 @@ Usage:
   ./deploy/setup.sh <domain>     install or update, and serve it over HTTPS
   ./deploy/setup.sh localhost    install without a domain (plain HTTP on :$APP_PORT)
   ./deploy/setup.sh --check      verify an existing install, change nothing
+  --skip-apt                     skip system packages (e.g. apt is stuck)
 
 Re-run after a git pull to update.
 EOF
