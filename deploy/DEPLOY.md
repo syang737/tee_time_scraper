@@ -197,6 +197,41 @@ Cloudflare Tunnel would let you close ports 80/443 entirely and stop
 publishing the instance's IP. It is not worth migrating nameservers just for
 that.
 
+## When apt is stuck rather than busy
+
+`setup.sh` waits for apt, because on a fresh instance the lock is normally
+just first-boot updates finishing. A process that holds it for *days* is a
+different thing, and waiting will never clear it.
+
+Find out what it actually is before touching it — the risk depends entirely
+on the answer:
+
+```bash
+ps -o pid,etime,stat,cmd -p "$(sudo fuser /var/lib/apt/lists/lock 2>/dev/null)"
+```
+
+- **`apt-get update`** only downloads package lists. Nothing is half-installed
+  if it dies, so terminating it is safe and the worst case is re-running it.
+- **`dpkg`, `apt-get install`, or `unattended-upgrade`** may be mid-transaction.
+  Killing those can leave packages half-configured. Prefer waiting; if you
+  must, run `sudo dpkg --configure -a` afterwards.
+
+For the safe case:
+
+```bash
+sudo kill <pid>          # ask nicely first
+sleep 5
+sudo kill -9 <pid>       # only if it ignored that
+sudo dpkg --configure -a # tidy up regardless
+sudo apt-get update
+```
+
+Note that an application update never needs apt once the box is provisioned:
+
+```bash
+git pull && ./deploy/setup.sh <your-domain> --skip-apt
+```
+
 ## Keeping the disk in check
 
 A 20 GB instance is plenty, but a process polling every 30 seconds forever

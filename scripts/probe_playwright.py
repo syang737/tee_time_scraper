@@ -130,8 +130,27 @@ def main() -> int:
                 args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
         except Exception as exc:
+            message = str(exc)
+            # Chromium is present but the distro is missing the GTK/X stack it
+            # links against. A bare Ubuntu server has none of it.
+            if "error while loading shared libraries" in message or "libatk" in message:
+                missing = "a system library"
+                for token in message.split():
+                    if token.startswith("lib") and ".so" in token:
+                        missing = token.rstrip(":")
+                        break
+                print(f"\nChromium is installed but cannot start: {missing} is")
+                print("missing. A bare Ubuntu server has none of the desktop")
+                print("libraries it links against. Install them with:\n")
+                print(f"    sudo {REPO}/.venv/bin/playwright install-deps chromium\n")
+                print("That uses apt. If apt is locked by a stuck process, clear")
+                print("that first -- see the note in README.md on the wedged")
+                print("apt-get, or:")
+                print("    ps -o pid,etime,stat,cmd -p "
+                      "$(sudo fuser /var/lib/apt/lists/lock 2>/dev/null)")
+                return 2
             # pip installs the library; the browser binary is a separate step.
-            if "Executable doesn" in str(exc) or "playwright install" in str(exc):
+            if "Executable doesn" in message or "playwright install" in message:
                 print("\nChromium itself is not downloaded yet. Installing the")
                 print("Python package does not fetch the browser:\n")
                 print(f"    {REPO}/.venv/bin/playwright install chromium\n")
