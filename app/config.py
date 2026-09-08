@@ -83,10 +83,59 @@ class CpsCourse:
         return CPS_BOOKING_PAGE_URL
 
 
-AnyCourse = ForeUpCourse | CpsCourse
+# --------------------------------------------------------------------------
+# EZLinks (Union County)
+# --------------------------------------------------------------------------
+
+EZLINKS_BASE_URL = "https://unioncountygolf.ezlinksgolf.com"
+EZLINKS_API_URL = f"{EZLINKS_BASE_URL}/api/search/search"
+
+# The search window sent with every request; slot-level filtering is ours.
+EZLINKS_EARLIEST = os.getenv("EZLINKS_EARLIEST", "5:00 AM")
+EZLINKS_LATEST = os.getenv("EZLINKS_LATEST", "8:00 PM")
+EZLINKS_SEARCH_PLAYERS = os.getenv("EZLINKS_SEARCH_PLAYERS", "1")
+
+# Union sits behind Cloudflare, which usually rejects on TLS fingerprint
+# rather than headers. curl_cffi replays a real Chrome handshake; set this
+# empty to force plain httpx instead.
+EZLINKS_IMPERSONATE = os.getenv("EZLINKS_IMPERSONATE", "chrome124")
+
+
+@dataclass(frozen=True)
+class EzLinksCourse:
+    key: str
+    name: str
+    facility: str
+    course_id: str
+    # Holes belong to the course: the API's r28 reads "9" on the nine-hole
+    # course but "1,15,18" on the eighteen, so it can't be trusted alone.
+    holes: int | None = None
+    provider: str = "ezlinks"
+
+    @property
+    def booking_url(self) -> str:
+        return f"{EZLINKS_BASE_URL}/"
+
+
+AnyCourse = ForeUpCourse | CpsCourse | EzLinksCourse
 
 ESSEX = "Essex County"
 BERGEN = "Bergen County"
+UNION = "Union County"
+
+# How long to leave between requests to a provider, beyond the normal poll
+# interval. Union is behind Cloudflare, and polling it as hard as the others
+# is the quickest way to get the instance's IP blocked.
+def _seconds(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name) or default)
+    except ValueError:
+        return default
+
+
+PROVIDER_MIN_INTERVAL_SECONDS: dict[str, int] = {
+    "ezlinks": _seconds("EZLINKS_MIN_INTERVAL_SECONDS", 120),
+}
 
 COURSES: dict[str, AnyCourse] = {
     # -- Essex County, on ForeUp ------------------------------------------
@@ -137,6 +186,18 @@ COURSES: dict[str, AnyCourse] = {
     ),
     "valley_brook": CpsCourse(
         key="valley_brook", name="Valley Brook 18", facility=BERGEN, course_id="13"
+    ),
+    # -- Union County, on EZLinks -------------------------------------------
+    # Ids 4545 and 4551 returned slots in a real capture. 4549 is also in the
+    # site's own search but returned nothing that day, so it is left out
+    # rather than named on a guess -- scripts/verify_ezlinks.py will show it.
+    "ash_brook": EzLinksCourse(
+        key="ash_brook", name="Ash Brook GC", facility=UNION,
+        course_id="4545", holes=18,
+    ),
+    "galloping_hill_9": EzLinksCourse(
+        key="galloping_hill_9", name="Galloping Hill (Learning Center 9)",
+        facility=UNION, course_id="4551", holes=9,
     ),
 }
 

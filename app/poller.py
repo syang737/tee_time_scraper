@@ -11,13 +11,14 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import config, cps_client, db, foreup_client, notify
+from . import config, cps_client, db, ezlinks_client, foreup_client, notify
 from .cps_client import CpsError
+from .ezlinks_client import EzLinksError
 from .foreup_client import ForeUpError
 from .models import TeeTimeSlot, Watch
 
 # Either provider failing to reach its API is the same thing to the poller.
-FetchError = (ForeUpError, CpsError)
+FetchError = (ForeUpError, CpsError, EzLinksError)
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,9 @@ class WatchResult:
     fetches: int = 0
     failures: int = 0
     last_failure: str | None = None
+    # A throttled provider left us without data for some course/date. Not an
+    # error, but it does mean we cannot conclude anything about what vanished.
+    incomplete: bool = False
 
     @property
     def all_fetches_failed(self) -> bool:
@@ -74,6 +78,12 @@ class WatchResult:
 
 # One cycle's worth of tee times, keyed by (course_key, date).
 Key = tuple[str, dt.date]
+
+# Providers whose API answers for several courses in a single request.
+BATCHING_PROVIDERS = {"cps", "ezlinks"}
+
+# When each provider was last called, so a throttled one can be skipped.
+_last_called: dict[str, dt.datetime] = {}
 
 
 @dataclass
@@ -89,6 +99,10 @@ class Cycle:
 
     slots: dict[Key, list[TeeTimeSlot]] = field(default_factory=dict)
     failures: dict[Key, str] = field(default_factory=dict)
+    # Not fetched this cycle because the provider is throttled. Distinct from
+    # a failure: nothing is wrong, we simply have no data -- which must not
+    # be read as "every slot got booked".
+    skipped: set[Key] = field(default_factory=set)
 
 
 def required_keys(watches: list[Watch], today: dt.date) -> set[Key]:
@@ -119,7 +133,7 @@ def plan_requests(keys: set[Key]) -> list[tuple[str, dt.date, list[str]]]:
     plan: list[tuple[str, dt.date, list[str]]] = []
     for (provider, date), course_keys in grouped.items():
         course_keys.sort()
-        if provider == "cps":
+        if provider in BATCHING_PROVIDERS:
             plan.append((provider, date, course_keys))  # one request, all courses
         else:
             plan.extend((provider, date, [key]) for key in course_keys)
@@ -133,14 +147,40 @@ async def _fetch_one(
     courses = [config.COURSES[k] for k in course_keys]
     if provider == "cps":
         return await cps_client.fetch_times(client, courses, date)
+    if provider == "ezlinks":
+        return await ezlinks_client.fetch_times(client, courses, date)
     slots = await foreup_client.fetch_times(client, courses[0], date)
     return {courses[0].key: slots}
 
 
-async def fetch_cycle(client: httpx.AsyncClient, keys: set[Key]) -> Cycle:
+def is_throttled(provider: str, now: dt.datetime) -> bool:
+    """True while a provider is inside its minimum gap between requests.
+
+    Union is behind Cloudflare, and hitting it as hard as the open APIs is
+    the fastest way to get the instance blocked, so it gets a longer leash
+    than the poll interval.
+    """
+    minimum = config.PROVIDER_MIN_INTERVAL_SECONDS.get(provider, 0)
+    if not minimum:
+        return False
+    last = _last_called.get(provider)
+    if last is None:
+        return False
+    return (now - last).total_seconds() < minimum
+
+
+async def fetch_cycle(
+    client: httpx.AsyncClient, keys: set[Key], now: dt.datetime | None = None
+) -> Cycle:
     """Fetch every needed course/date exactly once."""
+    now = now or local_now()
     cycle = Cycle()
     for index, (provider, date, course_keys) in enumerate(plan_requests(keys)):
+        if is_throttled(provider, now):
+            for course_key in course_keys:
+                cycle.skipped.add((course_key, date))
+            continue
+        _last_called[provider] = now
         if config.REQUEST_DELAY_SECONDS and index:
             # Space the requests out rather than bursting the whole cycle at
             # the course's server at once.
@@ -176,6 +216,10 @@ async def process_watch(
                 continue
 
             key = (course_key, date)
+            if key in cycle.skipped:
+                result.incomplete = True
+                continue
+
             result.fetches += 1
             if key in cycle.failures:
                 result.failures += 1
@@ -199,7 +243,7 @@ async def process_watch(
     # Anything we had open but that is no longer in the response got booked by
     # someone else -- stop re-notifying about it. Skipped when a fetch failed,
     # so a transient API error doesn't look like every slot disappearing.
-    if not result.failures:
+    if not result.failures and not result.incomplete:
         db.close_missing_slots(watch.id, [s.slot_key for s in matches])
 
     return result
@@ -222,7 +266,7 @@ async def poll_once(
         active.append(watch)
 
     # Fetch once for everyone, then let each watch pick from the same data.
-    cycle = await fetch_cycle(client, required_keys(active, now.date()))
+    cycle = await fetch_cycle(client, required_keys(active, now.date()), now)
 
     for watch in active:
         try:

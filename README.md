@@ -27,6 +27,69 @@ seen, and pushes to [ntfy.sh](https://ntfy.sh) when something new matches.
 | Weequahic | 22527 | 11077 | 49424 |
 | Francis A. Byrne | 22528 | 11078 | 49771 |
 
+## Courses
+
+Three counties, on three different booking systems:
+
+| County | System | Courses |
+|---|---|---|
+| Essex | ForeUp | Hendricks Field, Weequahic, Francis A. Byrne |
+| Bergen | CPS Golf | Soldier Hill, Darlington, Orchard Hills, Rockleigh R/W, Rockleigh Blue, Valley Brook |
+| Union | EZLinks | Ash Brook, Galloping Hill (Learning Center 9) |
+
+Each has its own client under `app/`, because they differ in ways that
+matter: ForeUp needs a request per course, while Bergen and Union each take
+a list of course ids and answer for all of them at once. The poller plans
+around that, so eleven course/date pairs cost five requests, not eleven.
+
+### Union County and Cloudflare
+
+Union sits behind Cloudflare, and a plain request gets challenged. What
+usually triggers it is the **TLS fingerprint**, not the headers — Python's
+handshake doesn't look like a browser's, however convincing the User-Agent.
+So `curl_cffi` (in `requirements.txt`) replays a real Chrome handshake, and
+the client uses it automatically.
+
+```bash
+python3 scripts/verify_ezlinks.py 2026-09-12
+```
+
+That reports exactly what came back and, if blocked, what to try next. If
+`curl_cffi` isn't enough, escalate by setting a different build
+(`EZLINKS_IMPERSONATE=chrome131`), and past that the fallback is driving a
+real browser with Playwright to satisfy the challenge — heavier, and tight
+on a 1 GB instance, so try the cheap options first.
+
+Union is also polled less often than the others
+(`EZLINKS_MIN_INTERVAL_SECONDS`, default 120s): hitting a Cloudflare-fronted
+endpoint every 30 seconds from one IP is the quickest way to get that IP
+blocked. A skipped poll is recorded as *no data*, never as "everything got
+booked", so throttling can't cause false "taken" states or re-alerts.
+
+Worth being clear-eyed: the Essex and Bergen endpoints are the plain,
+unauthenticated ones their own booking pages call. Union is signalling that
+it would rather not be automated. This is still one person reading public
+tee-time listings at a couple of requests a minute, but it's their fence,
+and it may be raised at any time — expect Union to be the part that breaks.
+
+### Two things still unverified for Union
+
+Its field names are all `rNN`, and one capture couldn't settle everything:
+
+- **Which field is spots remaining.** `r11` and `r14` were both `4` in every
+  row. The client reads `r14` and falls back to `r11`. If Union starts
+  alerting for parties bigger than a slot really fits, that's the cause —
+  `verify_ezlinks.py` prints both against a busy date to settle it.
+- **Two of three course ids.** `4549` is in the site's own search but
+  returned nothing that day, so it isn't named on a guess. The verify script
+  flags any id it sees that isn't in `app/config.py`.
+
+One thing that *was* settled: the same tee time comes back once per rate
+plan (Public, Player Card 7-day, Player Card 14-day). Left alone that would
+fire three notifications for one opening, so entries are collapsed per
+course and start time, quoting the **Public** rate — the Player Card prices
+are lower but need a card, and quoting $19 to someone without one is wrong.
+
 ## What earns an alert
 
 A slot has to satisfy **every** criterion on one of your watches:

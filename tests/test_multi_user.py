@@ -143,9 +143,12 @@ def test_topic_falls_back_only_when_the_watch_has_none(monkeypatch):
 
 def test_overlapping_watches_share_one_fetch(temp_db, monkeypatch, pushes):
     monkeypatch.setattr(config, "NTFY_TOPIC", "")
+    # Scoped to the ForeUp courses: stub_fetch patches that client, and this
+    # is about sharing between watches, not about batching across providers.
+    essex = [k for k, c in config.COURSES.items() if c.provider == "foreup"]
     # Six people all watching the same three courses on the same weekend.
     for n in range(6):
-        db.save_watch(Watch(label=f"person{n}", courses=list(config.COURSES),
+        db.save_watch(Watch(label=f"person{n}", courses=essex,
                             days=["sat", "sun"], ntfy_topic=f"person{n}"))
     calls = stub_fetch(monkeypatch, {})
 
@@ -154,7 +157,7 @@ def test_overlapping_watches_share_one_fetch(temp_db, monkeypatch, pushes):
     assert len(calls) == len(set(calls)), "the same course/date was fetched twice"
     # 3 courses x 4 weekend dates in the 14-day horizon -- not x6 for the
     # six watches, which is what would blow past the poll interval.
-    assert len(calls) == 12
+    assert len(calls) == len(essex) * 4
 
 
 def test_request_count_does_not_grow_with_watch_count(temp_db, monkeypatch, pushes):
@@ -297,3 +300,59 @@ def test_a_batched_failure_is_recorded_against_every_course_in_it(
 
     assert len(cycle.failures) == len(bergen)
     assert all("cloudflare said no" in msg for msg in cycle.failures.values())
+
+
+def test_union_batches_and_is_throttled(temp_db, monkeypatch):
+    """Union is behind Cloudflare, so it gets a longer leash than the rest."""
+    poller._last_called.clear()
+    union = [k for k, c in config.COURSES.items() if c.provider == "ezlinks"]
+    keys = {(k, dt.date(2026, 9, 12)) for k in union}
+
+    # One request covers the county, like Bergen.
+    plan = poller.plan_requests(keys)
+    assert len(plan) == 1 and plan[0][0] == "ezlinks"
+
+    calls = []
+
+    async def fake(client, courses, date):
+        calls.append(date)
+        return {c.key: [] for c in courses}
+
+    monkeypatch.setattr(poller.ezlinks_client, "fetch_times", fake)
+    monkeypatch.setattr(config, "PROVIDER_MIN_INTERVAL_SECONDS", {"ezlinks": 120})
+
+    run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW))
+    assert len(calls) == 1
+
+    # A cycle 30s later must not hit it again.
+    cycle = run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW + dt.timedelta(seconds=30)))
+    assert len(calls) == 1
+    assert cycle.skipped == keys
+
+    # ...but once the gap has passed it resumes.
+    run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW + dt.timedelta(seconds=121)))
+    assert len(calls) == 2
+
+
+def test_a_throttled_skip_never_looks_like_slots_got_booked(temp_db, monkeypatch, pushes):
+    """The dangerous failure mode: no data read as 'everything is gone'."""
+    poller._last_called.clear()
+    monkeypatch.setattr(config, "NTFY_TOPIC", "")
+    monkeypatch.setattr(config, "PROVIDER_MIN_INTERVAL_SECONDS", {"ezlinks": 120})
+    watch_id = db.save_watch(Watch(label="union", courses=["ash_brook"],
+                                   specific_date="2026-09-12", ntfy_topic="t"))
+    slot = make_slot("08:00", course="ash_brook", date=(2026, 9, 12))
+
+    async def fake(client, courses, date):
+        return {c.key: [slot] for c in courses}
+
+    monkeypatch.setattr(poller.ezlinks_client, "fetch_times", fake)
+    run(poller.poll_once(httpx.AsyncClient(), now=NOW))
+    assert db.get_seen_slot(watch_id, slot.slot_key)["still_open"] == 1
+
+    # Next cycle is throttled: the slot must stay open, not be marked taken.
+    run(poller.poll_once(httpx.AsyncClient(), now=NOW + dt.timedelta(seconds=30)))
+    assert db.get_seen_slot(watch_id, slot.slot_key)["still_open"] == 1
+
+    # And a throttled cycle is not an error.
+    assert db.get_poll_status()["last_error"] is None

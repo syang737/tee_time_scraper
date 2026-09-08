@@ -5,6 +5,11 @@ jinja2==3.1.5
 python-multipart==0.0.20
 itsdangerous==2.2.0
 python-dotenv==1.0.1
+# Union County sits behind Cloudflare, which rejects on TLS fingerprint
+# rather than headers. curl_cffi replays a real Chrome handshake; without
+# it the Union courses will be challenged (the others are unaffected).
+curl_cffi==0.7.4
+
 # Windows ships no time zone database, and app/poller.py resolves
 # America/New_York at import time.
 tzdata==2024.2; sys_platform == "win32"
