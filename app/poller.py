@@ -11,9 +11,13 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import config, db, foreup_client, notify
+from . import config, cps_client, db, foreup_client, notify
+from .cps_client import CpsError
 from .foreup_client import ForeUpError
 from .models import TeeTimeSlot, Watch
+
+# Either provider failing to reach its API is the same thing to the poller.
+FetchError = (ForeUpError, CpsError)
 
 log = logging.getLogger(__name__)
 
@@ -98,23 +102,62 @@ def required_keys(watches: list[Watch], today: dt.date) -> set[Key]:
     return keys
 
 
+def plan_requests(keys: set[Key]) -> list[tuple[str, dt.date, list[str]]]:
+    """Group the needed course/date pairs into the fewest requests.
+
+    ForeUp wants one request per course, but CPS takes a list of courseIds
+    and answers for all of them at once -- so a whole Bergen weekend costs
+    one request per date rather than one per course per date.
+    """
+    grouped: dict[tuple[str, dt.date], list[str]] = {}
+    for course_key, date in keys:
+        course = config.COURSES.get(course_key)
+        if course is None:
+            continue
+        grouped.setdefault((course.provider, date), []).append(course_key)
+
+    plan: list[tuple[str, dt.date, list[str]]] = []
+    for (provider, date), course_keys in grouped.items():
+        course_keys.sort()
+        if provider == "cps":
+            plan.append((provider, date, course_keys))  # one request, all courses
+        else:
+            plan.extend((provider, date, [key]) for key in course_keys)
+    plan.sort(key=lambda item: (item[1], item[0], item[2]))
+    return plan
+
+
+async def _fetch_one(
+    client: httpx.AsyncClient, provider: str, date: dt.date, course_keys: list[str]
+) -> dict[str, list[TeeTimeSlot]]:
+    courses = [config.COURSES[k] for k in course_keys]
+    if provider == "cps":
+        return await cps_client.fetch_times(client, courses, date)
+    slots = await foreup_client.fetch_times(client, courses[0], date)
+    return {courses[0].key: slots}
+
+
 async def fetch_cycle(client: httpx.AsyncClient, keys: set[Key]) -> Cycle:
     """Fetch every needed course/date exactly once."""
     cycle = Cycle()
-    for index, key in enumerate(sorted(keys, key=lambda k: (k[1], k[0]))):
-        course_key, date = key
+    for index, (provider, date, course_keys) in enumerate(plan_requests(keys)):
         if config.REQUEST_DELAY_SECONDS and index:
             # Space the requests out rather than bursting the whole cycle at
             # the course's server at once.
             await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
         try:
-            cycle.slots[key] = await foreup_client.fetch_times(
-                client, config.COURSES[course_key], date
+            for course_key, slots in (
+                await _fetch_one(client, provider, date, course_keys)
+            ).items():
+                cycle.slots[(course_key, date)] = slots
+        except FetchError as exc:
+            # One bad request must not stop the rest of the cycle. A batched
+            # request covers several courses, so all of them fail together.
+            for course_key in course_keys:
+                cycle.failures[(course_key, date)] = str(exc)
+            log.warning(
+                "Fetch failed for %s on %s: %s", ", ".join(course_keys), date, exc
             )
-        except ForeUpError as exc:
-            # One bad course/date must not stop the rest of the cycle.
-            cycle.failures[key] = str(exc)
-            log.warning("Fetch failed for %s on %s: %s", course_key, date, exc)
     return cycle
 
 

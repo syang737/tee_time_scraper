@@ -187,6 +187,19 @@ legend { font-weight: 600; font-size: 0.88rem; padding: 0 0.35rem; }
 
 .row { display: flex; gap: 1rem; flex-wrap: wrap; }
 
+/* Courses are grouped by facility so the list stays scannable as counties
+   are added. */
+.course-group { margin-bottom: 0.75rem; }
+.course-group:last-child { margin-bottom: 0; }
+.course-group h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 button {
   margin-top: 1rem;
   padding: 0.5rem 1.1rem;

@@ -47,7 +47,7 @@ class ForeUpError(RuntimeError):
     """Raised when the API is unreachable or returns something unusable."""
 
 
-def build_params(course: config.Course, date: dt.date) -> dict[str, Any]:
+def build_params(course: config.ForeUpCourse, date: dt.date) -> dict[str, Any]:
     """Query params for one course on one date, mirroring the booking page."""
     return {
         "time": "all",
@@ -93,7 +93,7 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
-def parse_response(payload: Any, course: config.Course) -> list[TeeTimeSlot]:
+def parse_response(payload: Any, course: config.ForeUpCourse) -> list[TeeTimeSlot]:
     """Normalize the raw JSON into slots belonging to ``course``."""
     if isinstance(payload, dict):
         # Some ForeUp responses wrap the list; take the first list we find.
@@ -143,7 +143,7 @@ def parse_response(payload: Any, course: config.Course) -> list[TeeTimeSlot]:
 
 
 async def fetch_times(
-    client: httpx.AsyncClient, course: config.Course, date: dt.date
+    client: httpx.AsyncClient, course: config.ForeUpCourse, date: dt.date
 ) -> list[TeeTimeSlot]:
     """Fetch and normalize one course's tee times for one date."""
     try:

@@ -235,6 +235,7 @@ async def new_watch_form(request: Request):
         {
             "watch": Watch(),
             "courses": config.COURSES,
+            "facilities": config.courses_by_facility(),
             "weekdays": WEEKDAYS,
             "error": None,
         },
@@ -252,6 +253,7 @@ async def edit_watch_form(request: Request, watch_id: int):
         {
             "watch": watch,
             "courses": config.COURSES,
+            "facilities": config.courses_by_facility(),
             "weekdays": WEEKDAYS,
             "error": None,
         },
@@ -299,6 +301,7 @@ async def save_watch(
             {
                 "watch": watch,
                 "courses": config.COURSES,
+                "facilities": config.courses_by_facility(),
                 "weekdays": WEEKDAYS,
                 "error": error,
             },

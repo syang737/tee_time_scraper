@@ -13,7 +13,7 @@ import datetime as dt
 import httpx
 import pytest
 
-from app import config, db, notify, poller
+from app import config, cps_client, db, notify, poller
 from app.foreup_client import ForeUpError
 from app.models import TeeTimeSlot, Watch
 from app.poller import TZ
@@ -213,3 +213,87 @@ def test_a_shared_failure_does_not_mark_slots_taken(temp_db, monkeypatch, pushes
     stub_fetch(monkeypatch, {}, fail={key})
     run(poller.poll_once(httpx.AsyncClient(), now=NOW + dt.timedelta(minutes=1)))
     assert db.get_seen_slot(watch_id, slot.slot_key)["still_open"] == 1
+
+
+# --------------------------------------------------------------------------
+# request planning across the two booking systems
+# --------------------------------------------------------------------------
+
+
+def test_bergen_costs_one_request_per_date_not_one_per_course():
+    """CPS takes a list of courseIds, so a whole county is a single call."""
+    bergen = [k for k, c in config.COURSES.items() if c.provider == "cps"]
+    keys = {(k, dt.date(2026, 9, 12)) for k in bergen}
+
+    plan = poller.plan_requests(keys)
+
+    assert len(plan) == 1, f"{len(bergen)} courses should batch into 1 request"
+    provider, date, course_keys = plan[0]
+    assert provider == "cps"
+    assert sorted(course_keys) == sorted(bergen)
+
+
+def test_essex_still_costs_one_request_per_course():
+    # ForeUp has no batch form; each course is its own call.
+    essex = [k for k, c in config.COURSES.items() if c.provider == "foreup"]
+    keys = {(k, dt.date(2026, 9, 12)) for k in essex}
+
+    plan = poller.plan_requests(keys)
+
+    assert len(plan) == len(essex)
+    assert all(len(course_keys) == 1 for _, _, course_keys in plan)
+
+
+def test_a_mixed_watch_plans_both_systems():
+    keys = {
+        ("weequahic", dt.date(2026, 9, 12)),
+        ("byrne", dt.date(2026, 9, 12)),
+        ("darlington", dt.date(2026, 9, 12)),
+        ("soldier_hill", dt.date(2026, 9, 12)),
+    }
+
+    plan = poller.plan_requests(keys)
+
+    # two ForeUp calls + one batched CPS call
+    assert len(plan) == 3
+    cps = [p for p in plan if p[0] == "cps"]
+    assert len(cps) == 1
+    assert sorted(cps[0][2]) == ["darlington", "soldier_hill"]
+
+
+def test_each_date_gets_its_own_batch():
+    bergen = [k for k, c in config.COURSES.items() if c.provider == "cps"]
+    keys = {
+        (k, d)
+        for k in bergen
+        for d in (dt.date(2026, 9, 12), dt.date(2026, 9, 13))
+    }
+
+    plan = poller.plan_requests(keys)
+
+    assert len(plan) == 2
+    assert {p[1] for p in plan} == {dt.date(2026, 9, 12), dt.date(2026, 9, 13)}
+
+
+def test_an_unknown_course_key_is_skipped_not_fatal():
+    plan = poller.plan_requests({("no_such_course", dt.date(2026, 9, 12))})
+    assert plan == []
+
+
+def test_a_batched_failure_is_recorded_against_every_course_in_it(
+    temp_db, monkeypatch, pushes
+):
+    """One CPS request covers several courses, so they fail together."""
+    monkeypatch.setattr(config, "NTFY_TOPIC", "")
+
+    async def boom(client, courses, date):
+        raise cps_client.CpsError("cloudflare said no")
+
+    monkeypatch.setattr(poller.cps_client, "fetch_times", boom)
+    bergen = [k for k, c in config.COURSES.items() if c.provider == "cps"]
+    keys = {(k, dt.date(2026, 9, 12)) for k in bergen}
+
+    cycle = run(poller.fetch_cycle(httpx.AsyncClient(), keys))
+
+    assert len(cycle.failures) == len(bergen)
+    assert all("cloudflare said no" in msg for msg in cycle.failures.values())

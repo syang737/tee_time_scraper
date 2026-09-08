@@ -1,0 +1,374 @@
+{
+  "transactionId": "b39d1fa9-f0a2-f81f-f3c0-2bbd9f78e650",
+  "isSuccess": true,
+  "content": [
+    {
+      "bookingList": [],
+      "teeSheetId": 978093,
+      "startTime": "2026-09-12T06:30:00",
+      "courseTimeId": 21817,
+      "startingTee": 1,
+      "is9HoleOnly": true,
+      "participants": 4,
+      "courseId": 12,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "R-BLUE 9",
+      "holes": 9,
+      "defaultHoles": 9,
+      "siteId": 6,
+      "courseName": "Rockleigh Blue 9",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee9",
+          "price": 25.0000000000,
+          "displayPrice": 25.0000000000,
+          "taxInclusivePrice": 25.0000,
+          "itemDesc": "Blue Course WE",
+          "classCode": "NON",
+          "rateCode": "R-BLUE 9"
+        }
+      ],
+      "holesDisplay": "9",
+      "playersDisplay": "1 - 4 GOLFERS",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "isContain9HoleItems": true,
+      "isDisabled18Hole": true,
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 978094,
+      "startTime": "2026-09-12T06:40:00",
+      "courseTimeId": 21817,
+      "startingTee": 1,
+      "is9HoleOnly": true,
+      "participants": 4,
+      "courseId": 12,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 9,
+      "siteId": 6,
+      "courseName": "Rockleigh Blue 9",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee9",
+          "price": 25.0000000000,
+          "displayPrice": 25.0000000000,
+          "itemDesc": "Blue Course WE",
+          "classCode": "NON",
+          "rateCode": "R-BLUE 9"
+        }
+      ],
+      "holesDisplay": "9",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1070027,
+      "startTime": "2026-09-12T15:10:00",
+      "courseTimeId": 23300,
+      "startingTee": 1,
+      "is9HoleOnly": true,
+      "participants": 4,
+      "courseId": 9,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "OH-NONRESREG",
+      "holes": 9,
+      "defaultHoles": 9,
+      "siteId": 5,
+      "courseName": "Orchard Hills",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee9",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "itemDesc": "Non Resident Registered WE 9 Holes",
+          "classCode": "NON",
+          "rateCode": "OH-NONRESREG",
+          "seasonId": 28
+        }
+      ],
+      "holesDisplay": "9",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1070030,
+      "startTime": "2026-09-12T15:40:00",
+      "courseTimeId": 23300,
+      "startingTee": 1,
+      "is9HoleOnly": true,
+      "participants": 4,
+      "courseId": 9,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 9,
+      "siteId": 5,
+      "courseName": "Orchard Hills",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee9",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "classCode": "NON",
+          "rateCode": "OH-NONRESREG"
+        }
+      ],
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1002014,
+      "startTime": "2026-09-12T16:20:00",
+      "courseTimeId": 22108,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 10,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "R-NON-REG. RES.",
+      "holes": 18,
+      "defaultHoles": 0,
+      "siteId": 6,
+      "courseName": "Rockleigh R/W 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "itemDesc": "Non Resident Registered Twilight WE",
+          "classCode": "NON",
+          "rateCode": "R-NON-REG. RES.",
+          "seasonId": 34
+        }
+      ],
+      "holesDisplay": "18",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "isContain18HoleItems": true,
+      "isDisabled9Hole": true,
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1002015,
+      "startTime": "2026-09-12T16:30:00",
+      "courseTimeId": 22108,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 10,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 18,
+      "siteId": 6,
+      "courseName": "Rockleigh R/W 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "classCode": "NON",
+          "rateCode": "R-NON-REG. RES."
+        }
+      ],
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 883995,
+      "startTime": "2026-09-12T16:20:00",
+      "courseTimeId": 19750,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 2,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "SH-NRR",
+      "holes": 18,
+      "defaultHoles": 0,
+      "siteId": 2,
+      "courseName": "Soldier Hill 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "itemDesc": "Non Resident Registered Twilight WE",
+          "classCode": "NON",
+          "rateCode": "SH-NRR",
+          "storeId": 7,
+          "seasonId": 10
+        }
+      ],
+      "holesDisplay": "18",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "isContain18HoleItems": true,
+      "defaultClassCode": "R",
+      "storeId": 7
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 883996,
+      "startTime": "2026-09-12T16:30:00",
+      "courseTimeId": 19750,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 2,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 18,
+      "siteId": 2,
+      "courseName": "Soldier Hill 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "classCode": "NON",
+          "rateCode": "SH-NRR",
+          "storeId": 7
+        }
+      ],
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R",
+      "storeId": 7
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1095793,
+      "startTime": "2026-09-12T16:20:00",
+      "courseTimeId": 23607,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 13,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "VB-Non-Res Reg",
+      "holes": 18,
+      "defaultHoles": 0,
+      "siteId": 7,
+      "courseName": "Valley Brook 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "itemDesc": "Non Resident Registered Twilight WE",
+          "classCode": "NON",
+          "rateCode": "VB-Non-Res Reg",
+          "seasonId": 40
+        }
+      ],
+      "holesDisplay": "18",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "isContain18HoleItems": true,
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1095794,
+      "startTime": "2026-09-12T16:30:00",
+      "courseTimeId": 23607,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 13,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 18,
+      "siteId": 7,
+      "courseName": "Valley Brook 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "classCode": "NON",
+          "rateCode": "VB-Non-Res Reg"
+        }
+      ],
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1040831,
+      "startTime": "2026-09-12T16:30:00",
+      "courseTimeId": 22872,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 4,
+      "courseDate": "2026-09-12T00:00:00",
+      "defaultRateCode": "D-NRR",
+      "holes": 18,
+      "defaultHoles": 18,
+      "siteId": 3,
+      "courseName": "Darlington 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "itemDesc": "Non Resident Registered Twilight WE",
+          "classCode": "NON",
+          "rateCode": "D-NRR",
+          "seasonId": 16
+        }
+      ],
+      "holesDisplay": "18",
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "isContain18HoleItems": true,
+      "defaultClassCode": "R"
+    },
+    {
+      "bookingList": [],
+      "teeSheetId": 1040832,
+      "startTime": "2026-09-12T16:40:00",
+      "courseTimeId": 22872,
+      "startingTee": 1,
+      "is18HoleOnly": true,
+      "participants": 4,
+      "courseId": 4,
+      "courseDate": "2026-09-12T00:00:00",
+      "holes": 18,
+      "siteId": 3,
+      "courseName": "Darlington 18",
+      "shItemPrices": [
+        {
+          "shItemCode": "GreenFee18",
+          "price": 55.0000000000,
+          "displayPrice": 55.0000000000,
+          "classCode": "NON",
+          "rateCode": "D-NRR"
+        }
+      ],
+      "minPlayer": 1,
+      "maxPlayer": 4,
+      "availableParticipantNo": [1, 2, 3, 4],
+      "defaultClassCode": "R"
+    }
+  ]
+}

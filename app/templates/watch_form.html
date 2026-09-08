@@ -16,12 +16,17 @@
     <fieldset>
       <legend>Courses</legend>
       <p class="hint">You get an alert only for the courses you tick.</p>
-      {% for key, course in courses.items() %}
-      <label class="check">
-        <input type="checkbox" name="courses" value="{{ key }}"
-               {{ 'checked' if key in watch.courses }}>
-        {{ course.name }}
-      </label>
+      {% for facility, group in facilities.items() %}
+      <div class="course-group">
+        <h4>{{ facility }}</h4>
+        {% for course in group %}
+        <label class="check">
+          <input type="checkbox" name="courses" value="{{ course.key }}"
+                 {{ 'checked' if course.key in watch.courses }}>
+          {{ course.name }}
+        </label>
+        {% endfor %}
+      </div>
       {% endfor %}
     </fieldset>
 
