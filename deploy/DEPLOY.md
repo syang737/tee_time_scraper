@@ -167,6 +167,7 @@ sudo apt update && sudo apt install -y caddy
 
 sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile      # set your hostname
+sudo caddy validate --config /etc/caddy/Caddyfile   # before reloading
 sudo systemctl reload caddy
 ```
 

@@ -308,11 +308,33 @@ install_caddy_site() {
     fi
 
     sudo mkdir -p /var/log/caddy
-    sed "s|^golf\.potpourri\.lol|$DOMAIN|" "$REPO_DIR/deploy/Caddyfile" \
-        | sudo tee /etc/caddy/Caddyfile >/dev/null
+    sudo chown caddy:caddy /var/log/caddy 2>/dev/null || true
+
+    # Validate before installing. A config Caddy rejects must never replace
+    # a working one: the reload fails, and falling back to a restart then
+    # stops the running Caddy and takes the site down with it.
+    local candidate errors
+    candidate="$(mktemp)"
+    sed "s|^golf\.potpourri\.lol|$DOMAIN|" "$REPO_DIR/deploy/Caddyfile" > "$candidate"
+    if ! errors="$(sudo caddy validate --config "$candidate" --adapter caddyfile 2>&1)"; then
+        rm -f "$candidate"
+        fail "deploy/Caddyfile is invalid; /etc/caddy/Caddyfile left unchanged"
+        printf '%s\n' "$errors" | grep -i 'error' | tail -3 | sed 's/^/      /'
+        die "fix the Caddyfile and re-run"
+    fi
+    sudo install -m 644 "$candidate" /etc/caddy/Caddyfile
+    rm -f "$candidate"
+    ok "Caddyfile valid and installed"
+
     sudo systemctl enable --quiet caddy
-    sudo systemctl reload caddy 2>/dev/null || sudo systemctl restart caddy
-    ok "caddy configured for $DOMAIN"
+    local action=restart
+    systemctl is-active --quiet caddy && action=reload
+    if ! sudo systemctl "$action" caddy; then
+        fail "caddy failed to $action. Last log lines:"
+        sudo journalctl -u caddy -n 15 --no-pager 2>/dev/null | sed 's/^/      /'
+        die "caddy is not serving $DOMAIN"
+    fi
+    ok "caddy serving $DOMAIN"
 }
 
 cap_journal() {

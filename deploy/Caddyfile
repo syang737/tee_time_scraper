@@ -8,12 +8,9 @@
 
 golf.potpourri.lol {
 	# The app binds to localhost only, so this is the sole way in and every
-	# request is forced through TLS.
+	# request is forced through TLS. reverse_proxy already sends
+	# X-Forwarded-Proto, which uvicorn picks up via --proxy-headers.
 	reverse_proxy localhost:8000
-
-	# Tells the app it is being served over HTTPS, which uvicorn passes
-	# through via --proxy-headers.
-	header_up X-Forwarded-Proto {scheme}
 
 	encode gzip
 
