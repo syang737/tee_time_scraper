@@ -334,6 +334,33 @@ def test_union_batches_and_is_throttled(temp_db, monkeypatch):
     assert len(calls) == 2
 
 
+def test_the_throttle_spaces_cycles_not_the_dates_within_one(temp_db, monkeypatch):
+    """A weekend is several dates, each its own request. Throttling between
+    those would fetch only the soonest date, every time, forever."""
+    poller._last_called.clear()
+    monkeypatch.setattr(config, "PROVIDER_MIN_INTERVAL_SECONDS", {"cps": 120})
+    dates = [dt.date(2026, 9, 5), dt.date(2026, 9, 6), dt.date(2026, 9, 12)]
+    keys = {("soldier_hill", d) for d in dates}
+    calls = []
+
+    async def fake(client, courses, date):
+        calls.append(date)
+        return {c.key: [] for c in courses}
+
+    monkeypatch.setattr(poller.cps_client, "fetch_times", fake)
+
+    cycle = run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW))
+    assert sorted(calls) == dates
+    assert not cycle.skipped
+
+    cycle = run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW + dt.timedelta(seconds=30)))
+    assert len(calls) == 3
+    assert cycle.skipped == keys
+
+    run(poller.fetch_cycle(httpx.AsyncClient(), keys, NOW + dt.timedelta(seconds=121)))
+    assert len(calls) == 6
+
+
 def test_a_throttled_skip_never_looks_like_slots_got_booked(temp_db, monkeypatch, pushes):
     """The dangerous failure mode: no data read as 'everything is gone'."""
     poller._last_called.clear()

@@ -67,9 +67,6 @@ class WatchResult:
     fetches: int = 0
     failures: int = 0
     last_failure: str | None = None
-    # A throttled provider left us without data for some course/date. Not an
-    # error, but it does mean we cannot conclude anything about what vanished.
-    incomplete: bool = False
 
     @property
     def all_fetches_failed(self) -> bool:
@@ -175,12 +172,20 @@ async def fetch_cycle(
     """Fetch every needed course/date exactly once."""
     now = now or local_now()
     cycle = Cycle()
-    for index, (provider, date, course_keys) in enumerate(plan_requests(keys)):
-        if is_throttled(provider, now):
+    plan = plan_requests(keys)
+    # Decided once for the whole cycle: the throttle spaces out cycles, not
+    # the dates within one. Checking per request would let the first date
+    # through and throttle every later one, so only the soonest date of a
+    # weekend would ever be polled.
+    throttled = {p for p, _, _ in plan if is_throttled(p, now)}
+    for provider in {p for p, _, _ in plan} - throttled:
+        _last_called[provider] = now
+
+    for index, (provider, date, course_keys) in enumerate(plan):
+        if provider in throttled:
             for course_key in course_keys:
                 cycle.skipped.add((course_key, date))
             continue
-        _last_called[provider] = now
         if config.REQUEST_DELAY_SECONDS and index:
             # Space the requests out rather than bursting the whole cycle at
             # the course's server at once.
@@ -198,6 +203,16 @@ async def fetch_cycle(
             log.warning(
                 "Fetch failed for %s on %s: %s", ", ".join(course_keys), date, exc
             )
+        except Exception as exc:
+            # Not an error type any client is expected to raise -- a library
+            # surprise in a Cloudflare workaround, say. Escaping here would
+            # abort the cycle for every watch, so a blocked county would
+            # silence the counties that work. Contain it to its own courses.
+            for course_key in course_keys:
+                cycle.failures[(course_key, date)] = f"{type(exc).__name__}: {exc}"
+            log.exception(
+                "Unexpected error fetching %s on %s", ", ".join(course_keys), date
+            )
     return cycle
 
 
@@ -208,6 +223,8 @@ async def process_watch(
     assert watch.id is not None
     result = WatchResult()
     matches = result.matches
+    # The course/dates we have a complete answer for this cycle.
+    answered: list[Key] = []
 
     for date in watch.candidate_dates(now.date()):
         for course_key in watch.courses:
@@ -217,7 +234,7 @@ async def process_watch(
 
             key = (course_key, date)
             if key in cycle.skipped:
-                result.incomplete = True
+                # Throttled: no data, which is not the same as "all booked".
                 continue
 
             result.fetches += 1
@@ -226,6 +243,7 @@ async def process_watch(
                 result.last_failure = cycle.failures[key]
                 continue
 
+            answered.append(key)
             for slot in cycle.slots.get(key, []):
                 # Slots earlier today have already teed off.
                 if slot.start.replace(tzinfo=TZ) <= now:
@@ -241,10 +259,12 @@ async def process_watch(
         db.upsert_slot(watch.id, slot, notified=notified, now=now)
 
     # Anything we had open but that is no longer in the response got booked by
-    # someone else -- stop re-notifying about it. Skipped when a fetch failed,
-    # so a transient API error doesn't look like every slot disappearing.
-    if not result.failures and not result.incomplete:
-        db.close_missing_slots(watch.id, [s.slot_key for s in matches])
+    # someone else -- stop re-notifying about it, so that if it reopens it is
+    # alerted as the fresh cancellation it is. Only for the course/dates that
+    # actually answered: a failed or throttled fetch says nothing about what
+    # vanished, and must not hold back the courses that did answer.
+    if answered:
+        db.close_missing_slots(watch.id, [s.slot_key for s in matches], answered)
 
     return result
 

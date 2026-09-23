@@ -238,21 +238,38 @@ def upsert_slot(
         )
 
 
-def close_missing_slots(watch_id: int, open_slot_keys: list[str]) -> None:
-    """Mark slots we previously saw open but that are gone from the response."""
+def close_missing_slots(
+    watch_id: int,
+    open_slot_keys: list[str],
+    scope: list[tuple[str, dt.date]] | None = None,
+) -> None:
+    """Mark slots we previously saw open but that are gone from the response.
+
+    ``scope`` limits this to the course/dates actually fetched this cycle. A
+    watch spanning a blocked or throttled county still keeps its bookkeeping
+    for the courses that did answer; without it, one missing county would
+    freeze every slot in the watch as "still open".
+    """
+    keep = ""
+    params: list = []
+    if open_slot_keys:
+        keep = f" AND slot_key NOT IN ({','.join('?' * len(open_slot_keys))})"
+        params = list(open_slot_keys)
+
     with connect() as conn:
-        if open_slot_keys:
-            placeholders = ",".join("?" * len(open_slot_keys))
+        if scope is None:
             conn.execute(
-                f"""UPDATE seen_slots SET still_open = 0
-                    WHERE watch_id = ? AND still_open = 1
-                      AND slot_key NOT IN ({placeholders})""",
-                (watch_id, *open_slot_keys),
+                "UPDATE seen_slots SET still_open = 0 "
+                "WHERE watch_id = ? AND still_open = 1" + keep,
+                (watch_id, *params),
             )
-        else:
+            return
+        for course_key, date in scope:
             conn.execute(
-                "UPDATE seen_slots SET still_open = 0 WHERE watch_id = ? AND still_open = 1",
-                (watch_id,),
+                "UPDATE seen_slots SET still_open = 0 "
+                "WHERE watch_id = ? AND still_open = 1 "
+                "AND course_key = ? AND date = ?" + keep,
+                (watch_id, course_key, date.isoformat(), *params),
             )
 
 

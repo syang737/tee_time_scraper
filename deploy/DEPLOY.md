@@ -282,9 +282,23 @@ sudo systemctl restart teetimes
 
 ## Troubleshooting
 
-- **No alerts arriving** — hit *Send test notification* on the dashboard. If
-  that doesn't reach your phone, the problem is the ntfy topic or the app
-  subscription, not the scraper.
+- **No alerts for a while** — run the explainer. For every watch it fetches
+  live and shows how many tee times came back per course and date, which
+  criterion turned each one away, whether anything matches and whether it
+  was already alerted, and which topic the alerts go to. It reads the same
+  database as the service but never writes to it or sends a push:
+
+  ```bash
+  cd ~/tee_time_scraper && .venv/bin/python scripts/explain_watches.py
+  ```
+
+  "0 match (… outside the time window, … too few open spots)" means the
+  scraper is working and there is simply nothing qualifying. "FETCH FAILED"
+  on an Essex course means ForeUp itself is refusing the box.
+- **Test works, real alerts don't** — hit *Send test notification* on the
+  dashboard. If that doesn't reach your phone, the problem is the ntfy topic
+  or the app subscription, not the scraper. Note a watch with its own topic
+  sends there, not to the server-wide one the plain test button uses.
 - **Dashboard shows a "last error"** — the poller reports when every request
   for a watch failed. `journalctl -u teetimes -n 50` has the detail.
 - **Service won't start** — `journalctl -u teetimes -n 50`. Usually a wrong

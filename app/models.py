@@ -121,26 +121,33 @@ class Watch:
 
     def matches(self, slot: TeeTimeSlot) -> bool:
         """Does this slot satisfy every criterion? Only then do we notify."""
-        if slot.course_key not in self.courses:
-            return False
+        return not self.failed_criteria(slot)
 
-        if self.min_players and slot.available_spots < self.min_players:
-            return False
-        if slot.available_spots < 1:
-            return False
+    def failed_criteria(self, slot: TeeTimeSlot) -> list[str]:
+        """Every criterion this slot fails: "course", "time", "holes", "players".
+
+        ``matches`` is defined by this, so the diagnostic script's account of
+        why nothing alerted can never disagree with what the poller does.
+        """
+        if slot.course_key not in self.courses:
+            return ["course"]
+
+        failed = []
+        if (self.time_start and slot.time_str < self.time_start) or (
+            self.time_end and slot.time_str > self.time_end
+        ):
+            failed.append("time")
 
         if self.holes != "any":
             # Treat an unknown hole count as non-matching when the watch is
             # specific, rather than notifying about the wrong round length.
             if slot.holes is None or str(slot.holes) != self.holes:
-                return False
+                failed.append("holes")
 
-        if self.time_start and slot.time_str < self.time_start:
-            return False
-        if self.time_end and slot.time_str > self.time_end:
-            return False
+        if slot.available_spots < max(self.min_players, 1):
+            failed.append("players")
 
-        return True
+        return failed
 
     def when_text(self) -> str:
         if self.specific_date:
@@ -202,7 +209,10 @@ class Watch:
 
     def describe(self) -> str:
         """One-line summary of the criteria, for the GUI and notifications."""
-        courses = ", ".join(c.title() for c in self.courses) or "no courses"
+        courses = ", ".join(
+            config.COURSES[c].name if c in config.COURSES else c.title()
+            for c in self.courses
+        ) or "no courses"
         if self.specific_date:
             when = self.specific_date
         else:

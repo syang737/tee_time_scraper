@@ -141,6 +141,25 @@ def test_recurring_watches_never_expire():
     assert not watch(days=["sat"]).is_expired(dt.date(2026, 9, 2))
 
 
+def test_failed_criteria_names_every_criterion_a_slot_misses():
+    w = watch(courses=["weequahic"], time_start="07:00", time_end="09:00",
+              min_players=3, holes="18")
+    assert w.failed_criteria(slot("08:00", spots=4)) == []
+    assert w.failed_criteria(slot("10:00", spots=4)) == ["time"]
+    assert w.failed_criteria(slot("10:00", spots=2, holes=9)) == [
+        "time", "holes", "players"
+    ]
+    assert w.failed_criteria(slot(course="byrne")) == ["course"]
+    # A full slot never matches, even for an "any players" watch.
+    assert watch(courses=["weequahic"]).failed_criteria(slot(spots=0)) == ["players"]
+
+
+def test_describe_uses_course_names_not_keys():
+    text = watch(courses=["soldier_hill", "byrne"]).describe()
+    assert "Soldier Hill" in text and "Byrne" in text
+    assert "_" not in text.split("|")[0]
+
+
 def test_describe_mentions_every_criterion():
     text = watch(
         courses=["weequahic"], time_start="07:00", time_end="10:00", min_players=2

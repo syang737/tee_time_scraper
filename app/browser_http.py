@@ -133,10 +133,11 @@ class BrowserSession:
     def _request_sync(
         self, method: str, url: str, headers: dict[str, str], **kwargs: Any
     ) -> tuple[int, str]:
-        session = self._ensure_session()
         merged = dict(BROWSER_HEADERS)
         merged.update(headers)
         try:
+            # Creating the session can fail too (a bad IMPERSONATE target).
+            session = self._ensure_session()
             response = session.request(method, url, headers=merged, **kwargs)
         except Exception as exc:  # curl_cffi raises its own error types
             raise TransportError(str(exc)) from exc
