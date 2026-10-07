@@ -1,0 +1,94 @@
+[
+  {
+    "_comment": "SYNTHETIC. Built from the response shape in two public captures of TeeItUp's /v2/tee-times, not captured from Somerset. Replace with the output of scripts/verify_teeitup.py --save.",
+    "courseId": "5e3d7968ce07ad0100ad9001",
+    "dayInfo": {"date": "2026-10-10"},
+    "totalAvailableTeetimes": 3,
+    "teetimes": [
+      {
+        "courseId": "5e3d7968ce07ad0100ad9001",
+        "teetime": "2026-10-10T11:20:00.000Z",
+        "minPlayers": 1,
+        "maxPlayers": 4,
+        "bookedPlayers": 2,
+        "rates": [
+          {"_id": 1001, "name": "18 Holes Walking", "holes": 18,
+           "allowedPlayers": [1, 2], "greenFeeWalking": 5400,
+           "golfnow": {"GolfFacilityId": 7092, "GolfCourseId": 2001}},
+          {"_id": 1002, "name": "18 Holes Riding", "holes": 18,
+           "allowedPlayers": [1, 2], "greenFeeCart": 7400,
+           "golfnow": {"GolfFacilityId": 7092, "GolfCourseId": 2001}}
+        ]
+      },
+      {
+        "courseId": "5e3d7968ce07ad0100ad9001",
+        "teetime": "2026-10-10T11:30:00.000Z",
+        "minPlayers": 1,
+        "maxPlayers": 4,
+        "bookedPlayers": 4,
+        "rates": [
+          {"_id": 1003, "name": "18 Holes Walking", "holes": 18,
+           "allowedPlayers": [], "greenFeeWalking": 5400,
+           "golfnow": {"GolfFacilityId": 7092, "GolfCourseId": 2001}}
+        ]
+      },
+      {
+        "courseId": "5e3d7968ce07ad0100ad9001",
+        "teetime": "2026-10-11T00:10:00.000Z",
+        "minPlayers": 1,
+        "maxPlayers": 4,
+        "bookedPlayers": 0,
+        "rates": [
+          {"_id": 1004, "name": "Twilight", "holes": 9,
+           "allowedPlayers": [1, 2, 3, 4], "greenFeeWalking": 2200,
+           "golfnow": {"GolfFacilityId": 7092, "GolfCourseId": 2001}}
+        ]
+      }
+    ]
+  },
+  {
+    "courseId": "5e3d7968ce07ad0100ad9002",
+    "dayInfo": {"date": "2026-10-10"},
+    "totalAvailableTeetimes": 1,
+    "teetimes": [
+      {
+        "courseId": "5e3d7968ce07ad0100ad9002",
+        "teetime": "2026-10-10T12:00:00.000Z",
+        "minPlayers": 2,
+        "maxPlayers": 4,
+        "bookedPlayers": 0,
+        "rates": [
+          {"_id": 2001, "name": "9 Holes", "holes": 9,
+           "allowedPlayers": [2, 3, 4], "greenFeeWalking": 3600,
+           "golfnow": {"GolfFacilityId": 7083, "GolfCourseId": 2002}},
+          {"_id": 2002, "name": "18 Holes", "holes": 18,
+           "allowedPlayers": [2, 3, 4], "greenFeeWalking": 6900,
+           "golfnow": {"GolfFacilityId": 7083, "GolfCourseId": 2002}}
+        ]
+      }
+    ]
+  },
+  {
+    "courseId": "5e3d7968ce07ad0100ad9003",
+    "dayInfo": {"date": "2026-10-10"},
+    "totalAvailableTeetimes": 0,
+    "teetimes": []
+  },
+  {
+    "courseId": "5e3d7968ce07ad0100ad9999",
+    "dayInfo": {"date": "2026-10-10"},
+    "totalAvailableTeetimes": 1,
+    "teetimes": [
+      {
+        "courseId": "5e3d7968ce07ad0100ad9999",
+        "teetime": "2026-10-10T13:00:00.000Z",
+        "maxPlayers": 4,
+        "bookedPlayers": 0,
+        "rates": [
+          {"_id": 9001, "name": "18 Holes", "holes": 18, "greenFeeWalking": 9900,
+           "golfnow": {"GolfFacilityId": 9999, "GolfCourseId": 9999}}
+        ]
+      }
+    ]
+  }
+]

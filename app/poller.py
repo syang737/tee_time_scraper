@@ -11,14 +11,15 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import config, cps_client, db, ezlinks_client, foreup_client, notify
+from . import config, cps_client, db, ezlinks_client, foreup_client, notify, teeitup_client
 from .cps_client import CpsError
 from .ezlinks_client import EzLinksError
 from .foreup_client import ForeUpError
+from .teeitup_client import TeeItUpError
 from .models import TeeTimeSlot, Watch
 
-# Either provider failing to reach its API is the same thing to the poller.
-FetchError = (ForeUpError, CpsError, EzLinksError)
+# Any provider failing to reach its API is the same thing to the poller.
+FetchError = (ForeUpError, CpsError, EzLinksError, TeeItUpError)
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class WatchResult:
 Key = tuple[str, dt.date]
 
 # Providers whose API answers for several courses in a single request.
-BATCHING_PROVIDERS = {"cps", "ezlinks"}
+BATCHING_PROVIDERS = {"cps", "ezlinks", "teeitup"}
 
 # When each provider was last called, so a throttled one can be skipped.
 _last_called: dict[str, dt.datetime] = {}
@@ -146,6 +147,8 @@ async def _fetch_one(
         return await cps_client.fetch_times(client, courses, date)
     if provider == "ezlinks":
         return await ezlinks_client.fetch_times(client, courses, date)
+    if provider == "teeitup":
+        return await teeitup_client.fetch_times(client, courses, date)
     slots = await foreup_client.fetch_times(client, courses[0], date)
     return {courses[0].key: slots}
 

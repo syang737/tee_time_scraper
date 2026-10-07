@@ -29,18 +29,44 @@ seen, and pushes to [ntfy.sh](https://ntfy.sh) when something new matches.
 
 ## Courses
 
-Three counties, on three different booking systems:
+Four counties, on four different booking systems:
 
 | County | System | Courses |
 |---|---|---|
 | Essex | ForeUp | Hendricks Field, Weequahic, Francis A. Byrne |
 | Bergen | CPS Golf | Soldier Hill, Darlington, Orchard Hills, Rockleigh R/W, Rockleigh Blue, Valley Brook |
 | Union | EZLinks | Ash Brook, Galloping Hill (Learning Center 9) |
+| Somerset | TeeItUp | Green Knoll, Neshanic Valley, Neshanic Valley Academy (9), Quail Brook, Spooky Brook, Warren Brook |
 
 Each has its own client under `app/`, because they differ in ways that
-matter: ForeUp needs a request per course, while Bergen and Union each take
-a list of course ids and answer for all of them at once. The poller plans
-around that, so eleven course/date pairs cost five requests, not eleven.
+matter: ForeUp needs a request per course, while Bergen, Union and Somerset
+each take a list of course ids and answer for all of them at once. The poller
+plans around that, so all six Somerset courses cost one request per date.
+
+### Somerset County (TeeItUp)
+
+The booking site is only a front end. Its tee sheet comes from TeeItUp's
+backend (`phx-api-be-east-1b.kenna.io`), which serves every TeeItUp site and
+tells them apart by an `X-Be-Alias` header naming the site — here
+`somerset-group-v2`. The search is anonymous and not behind Cloudflare, so
+it uses plain httpx and no throttle, like Essex.
+
+Three quirks the client handles: times come back in **UTC** and are
+converted to local; prices are in **cents**; and one start can be sold as
+**either 9 or 18 holes** (Neshanic Valley is 27 holes), which becomes one
+slot that matches a 9-hole *or* an 18-hole watch rather than two alerts.
+
+The client was written from public captures of this API, not from one of
+Somerset's own responses, so check it from the server once:
+
+```bash
+.venv/bin/python scripts/verify_teeitup.py --save
+```
+
+It confirms the six ids and names against the site's own list, prints the
+field names it finds, flags anything that parses implausibly (night-time
+tee times, more than four open spots), and with `--save` keeps the raw
+response so the tests can use it in place of the synthetic fixture.
 
 ### Union County and Cloudflare
 

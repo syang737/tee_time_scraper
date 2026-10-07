@@ -52,6 +52,20 @@ class TeeTimeSlot:
     cart_fee: float | None = None
     teetime_id: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
+    # Every round length this tee time can be booked as, when the provider
+    # sells one start as either 9 or 18 (TeeItUp does). Empty means just
+    # ``holes``. ``holes`` stays the longest, so the dedup key is stable.
+    holes_options: tuple[int, ...] = ()
+
+    @property
+    def playable_holes(self) -> tuple[int, ...]:
+        if self.holes_options:
+            return self.holes_options
+        return (self.holes,) if self.holes is not None else ()
+
+    @property
+    def holes_text(self) -> str:
+        return "/".join(str(h) for h in self.playable_holes)
 
     @property
     def date_str(self) -> str:
@@ -141,7 +155,7 @@ class Watch:
         if self.holes != "any":
             # Treat an unknown hole count as non-matching when the watch is
             # specific, rather than notifying about the wrong round length.
-            if slot.holes is None or str(slot.holes) != self.holes:
+            if str(self.holes) not in {str(h) for h in slot.playable_holes}:
                 failed.append("holes")
 
         if slot.available_spots < max(self.min_players, 1):

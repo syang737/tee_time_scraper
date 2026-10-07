@@ -31,7 +31,7 @@ def _headers(slot: TeeTimeSlot, watch: Watch) -> dict[str, str]:
 def _body(slot: TeeTimeSlot, watch: Watch) -> str:
     lines = [
         f"{slot.available_spots} spot(s) open"
-        + (f", {slot.holes} holes" if slot.holes else ""),
+        + (f", {slot.holes_text} holes" if slot.holes else ""),
     ]
     if slot.green_fee is not None:
         fee = f"${slot.green_fee:.0f} green fee"

@@ -1,11 +1,13 @@
 """Settings, and the fixed identifiers for every course we can watch.
 
-Two booking systems are covered, and they work differently enough that each
+Four booking systems are covered, and they work differently enough that each
 gets its own course type and client:
 
 * **ForeUp** (Essex County) -- one request per course per date.
 * **CPS Golf** (Bergen County) -- one request covers *all* courses for a
   date, since ``courseIds`` takes a list. The poller batches accordingly.
+* **EZLinks** (Union County) -- batched the same way, behind Cloudflare.
+* **TeeItUp** (Somerset County) -- batched too: ``facilityIds`` is a list.
 """
 
 import os
@@ -118,11 +120,45 @@ class EzLinksCourse:
         return f"{EZLINKS_BASE_URL}/"
 
 
-AnyCourse = ForeUpCourse | CpsCourse | EzLinksCourse
+# --------------------------------------------------------------------------
+# TeeItUp (Somerset County)
+# --------------------------------------------------------------------------
+
+# The booking site is a front end; the data comes from TeeItUp's backend
+# ("Kenna"), which serves every TeeItUp site and tells them apart by the
+# X-Be-Alias header -- the site's subdomain.
+TEEITUP_API_URL = os.getenv(
+    "TEEITUP_API_URL", "https://phx-api-be-east-1b.kenna.io"
+).rstrip("/")
+
+
+@dataclass(frozen=True)
+class TeeItUpCourse:
+    key: str
+    name: str
+    facility: str
+    course_id: str  # the numeric facility id in the site's ?course= list
+    alias: str  # the booking site's subdomain, sent as X-Be-Alias
+    provider: str = "teeitup"
+
+    @property
+    def site_url(self) -> str:
+        return f"https://{self.alias}.book.teeitup.com"
+
+    @property
+    def booking_url(self) -> str:
+        return f"{self.site_url}/?course={self.course_id}"
+
+
+SOMERSET_ALIAS = "somerset-group-v2"
+
+
+AnyCourse = ForeUpCourse | CpsCourse | EzLinksCourse | TeeItUpCourse
 
 ESSEX = "Essex County"
 BERGEN = "Bergen County"
 UNION = "Union County"
+SOMERSET = "Somerset County"
 
 # How long to leave between requests to a provider, beyond the normal poll
 # interval. Union is behind Cloudflare, and polling it as hard as the others
@@ -200,6 +236,33 @@ COURSES: dict[str, AnyCourse] = {
     "galloping_hill_9": EzLinksCourse(
         key="galloping_hill_9", name="Galloping Hill (Learning Center 9)",
         facility=UNION, course_id="4551", holes=9,
+    ),
+    # -- Somerset County, on TeeItUp ----------------------------------------
+    # The six ids in the county's own booking link. Each is also the course's
+    # GolfNow facility id, which is where the names were confirmed.
+    "green_knoll": TeeItUpCourse(
+        key="green_knoll", name="Green Knoll", facility=SOMERSET,
+        course_id="7092", alias=SOMERSET_ALIAS,
+    ),
+    "neshanic_valley": TeeItUpCourse(
+        key="neshanic_valley", name="Neshanic Valley", facility=SOMERSET,
+        course_id="7083", alias=SOMERSET_ALIAS,
+    ),
+    "neshanic_academy": TeeItUpCourse(
+        key="neshanic_academy", name="Neshanic Valley Academy (9)",
+        facility=SOMERSET, course_id="10158", alias=SOMERSET_ALIAS,
+    ),
+    "quail_brook": TeeItUpCourse(
+        key="quail_brook", name="Quail Brook", facility=SOMERSET,
+        course_id="7084", alias=SOMERSET_ALIAS,
+    ),
+    "spooky_brook": TeeItUpCourse(
+        key="spooky_brook", name="Spooky Brook", facility=SOMERSET,
+        course_id="7094", alias=SOMERSET_ALIAS,
+    ),
+    "warren_brook": TeeItUpCourse(
+        key="warren_brook", name="Warren Brook", facility=SOMERSET,
+        course_id="7093", alias=SOMERSET_ALIAS,
     ),
 }
 
